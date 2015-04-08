@@ -11,6 +11,7 @@ extern uint32_t heap_size;
 extern uint32_t kernel_heap_size;
 extern uint32_t VMA;
 extern uint32_t kend;
+uint64_t kernel_end;
 //uint8_t *kernel_heap_ptr;
 
 void dump_mem(multiboot_info_t*);
@@ -19,7 +20,7 @@ void kmain(void)
 {
 	serial.init();
 	//serial.write_str("Hello, World");
-	uint64_t kernel_end = (uint64_t)&kend/0x1000*0x1000 + ((uint64_t)&kend%0x1000?0x1000:0x0);
+	kernel_end = (uint64_t)&kend/0x1000*0x1000 + ((uint64_t)&kend%0x1000?0x1000:0x0);
 	kernel_heap_ptr = (uint8_t*)((uint64_t)&VMA + kernel_end + heap_size) ;
 	debug("KH : %lx\n", kernel_heap_ptr );
 	dump_mem(mboot_info);
@@ -58,7 +59,7 @@ void dump_mem(multiboot_info_t *mboot)
 				((uint64_t)mmap + mmap->size + sizeof(uint32_t));
 			
 	}
-
+	mman.set_unusable(0, kernel_end + heap_size + kernel_heap_size * 0x1000); 
 	debug("Frame : %lx\n", mman.get_frame());
 	debug("Frame : %lx\n", mman.get_frame());
 }

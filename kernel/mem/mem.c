@@ -15,20 +15,49 @@ void *heap_alloc(uint32_t size)
 	return ptr;
 }
 
-static uint8_t bitmap_set(uint64_t addr)
+static uint64_t bitmap_set(uint64_t addr)
 {
+	uint64_t ret_addr = addr;
 	addr /= 0x1000;
 	if( addr > bitmap_frames_count ) return 0;
 	bitmap[addr/8] |= 1 << addr%8;
-	return 1;
+	return ret_addr;
 }
 
-static uint8_t bitmap_clear(uint64_t addr)
+static uint64_t bitmap_set_pages(uint64_t addr, uint32_t count)
 {
+	uint64_t ret_addr = addr;
+	addr /= 0x1000;
+	while(count--)
+	{
+		if( addr > bitmap_frames_count ) return 0;
+		bitmap[addr/8] |= 1 << addr%8;
+		++addr;
+	}
+	return ret_addr;
+}
+
+static uint64_t bitmap_clear(uint64_t addr)
+{
+	uint64_t ret_addr = addr;
 	addr /= 0x1000;
 	if( addr > bitmap_frames_count ) return 0;
 	bitmap[addr/8] &= ~(1 << addr%8);
-	return 1;
+	return ret_addr;
+}
+
+
+static uint64_t bitmap_clear_pages(uint64_t addr, uint32_t count)
+{
+	uint64_t ret_addr = addr;
+	addr /= 0x1000;
+	while(count--)
+	{
+		if( addr > bitmap_frames_count ) return 0;
+		bitmap[addr/8] &= ~(1 << addr%8);
+		++addr;
+	}
+	return ret_addr;
 }
 
 static uint32_t bitmap_check(uint64_t addr)
@@ -49,6 +78,17 @@ static void bitmap_set_usable(uint64_t addr, uint64_t size)
 	}
 }
 
+static void bitmap_set_unusable(uint64_t addr, uint64_t size)
+{
+	debug("Setting memory at address %lx and size %ld as unusable\n", addr, size); 
+	uint32_t pages_count = size/4096;
+	while(pages_count--)
+	{
+		bitmap_clear(addr);
+		addr += 0x1000;
+	}
+}
+
 static void bitmap_setup(uint64_t mem)
 {
 	bitmap_frames_count = mem/4096/8*8;
@@ -62,7 +102,7 @@ static uint64_t bitmap_get_frame()
 	while( i < bitmap_frames_count )
 	{
 		if(bitmap_check(i * 0x1000))
-			return bitmap_clear(i*0x1000), i * 0x1000;
+			return bitmap_clear(i*0x1000);
 		++i;
 	}
 	debug("Can't find free page frame\n");
@@ -76,7 +116,7 @@ static uint64_t bitmap_get_frames(uint32_t count)
 		if( k = i, bitmap_check(i*0x1000) )
 			while( i < bitmap_frames_count && bitmap_check(++i*0x1000))
 				if( (i-k) == count )
-					return k*0x1000;
+					return bitmap_set_pages(k*0x1000, count);
 		++i;
 	}
 	debug("Can't find contigouos page frames\n");
@@ -110,9 +150,12 @@ void *memset(void *addr, uint8_t val, uint32_t size)
 
 mman_t mman = {
 	.set = &bitmap_set,
+	.set_pages = &bitmap_set_pages,
 	.clear = &bitmap_clear,
+	.clear_pages = &bitmap_clear_pages,
 	.check = &bitmap_check,
 	.set_usable = &bitmap_set_usable,
+	.set_unusable = &bitmap_set_unusable,
 	.get_frame = &bitmap_get_frame,
 	.get_frames = &bitmap_get_frames,
 	.setup = &bitmap_setup,
