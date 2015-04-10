@@ -5,4 +5,6 @@
 
 #include <utypes.h>
 
+#define NULL ((void*)0)
+
 #endif

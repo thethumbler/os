@@ -4,6 +4,7 @@
 #include <serial.h>
 #include <debug.h>
 #include <mem.h>
+#include <alloc.h>
 
 extern multiboot_info_t *mboot_info;
 extern uint32_t kernel_size;
@@ -22,9 +23,13 @@ void kmain(void)
 	//serial.write_str("Hello, World");
 	kernel_end = (uint64_t)&kend/0x1000*0x1000 + ((uint64_t)&kend%0x1000?0x1000:0x0);
 	kernel_heap_ptr = (uint8_t*)((uint64_t)&VMA + kernel_end + heap_size) ;
-	debug("KH : %lx\n", kernel_heap_ptr );
-	dump_mem(mboot_info);
-	*(char*)(0xB8000) = 'K';
+	KPD = (uint64_t*)((uint64_t)&VMA + kernel_end + 0x4000);
+	//dump_mem(mboot_info);
+
+	idt_install();
+	//asm("sti");
+	//asm("int $80");
+	*(char*)(0xB8002) = 'K';
 	for(;;);
 }
 
@@ -60,6 +65,4 @@ void dump_mem(multiboot_info_t *mboot)
 			
 	}
 	mman.set_unusable(0, kernel_end + heap_size + kernel_heap_size * 0x1000); 
-	debug("Frame : %lx\n", mman.get_frame());
-	debug("Frame : %lx\n", mman.get_frame());
 }

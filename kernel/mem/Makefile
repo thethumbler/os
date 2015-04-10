@@ -1,7 +1,7 @@
 
 include ../Makefile.cfg
 
-OBJ = mem.o
+OBJ = mem.o alloc.o
 OUT=../obj
 
 CFLAGS = -c -I ../include/ -mcmodel=large -nostdlib -ffreestanding

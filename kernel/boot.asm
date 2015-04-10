@@ -16,6 +16,11 @@ _start:
 real_start:
 	mov [mboot_info], ebx
 	
+	; Disable IRQs
+    mov al, 0xFF         ; Out 0xFF to 0xA1 and 0x21 to disable all IRQs.
+    out 0xA1, al
+    out 0x21, al
+	
 	extern kstart, kend
 	; Get heap address
 	mov eax, kend
@@ -206,22 +211,23 @@ real_start:
 	
 	
 GDT:
-.Null:
-    dq 0x0000000000000000             ; Null Descriptor - should be present.
- 
-.Code:
-    dq 0x0020980000000000             ; 64-bit code descriptor. 
-    dq 0x0000900000000000             ; 64-bit data descriptor. 
+    dq 0x0000000000000000
+    dq 0x0020980000000000
+    dq 0x0000900000000000
  
 ALIGN 4
-    dw 0                              ; Padding to make the "address of the GDT" field aligned on a 4-byte boundary
-
+    dw 0
 .Pointer:
-    dw $ - GDT - 1                    ; 16-bit Size (Limit) of GDT.
-    dd GDT                            ; 32-bit Base Address of GDT. (CPU will zero extend to 64-bit)
+    dw $ - GDT - 1
+    dd GDT
 
 bits 64
 longmode:
+	mov ax, 0x10
+	mov ds, ax
+	mov es, ax
+	mov fs, ax
+    
 	extern kmain
 	call kmain
 	jmp $
