@@ -15,8 +15,6 @@ void idt_set_gate( uint32_t id, uint64_t offset, uint16_t sel, uint8_t flags)
 
 void idt_install()
 {
-	extern void isr80();
-	idt_set_gate(80, &isr80, 0x8, 0x8E);
 	extern void idt_flush();
 	idt_ptr.limit = sizeof(idt_entry_t) * 256 - 1;
 	idt_ptr.base = (uint64_t)&idt;

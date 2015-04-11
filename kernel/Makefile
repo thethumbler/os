@@ -3,7 +3,7 @@ include Makefile.cfg
 
 OBJ = boot.o kernel.o
 ALL_OBJ = boot.o kernel.o io.o serial.o debug.o mem.o idt.o \
-		  cpu.o
+		  cpu.o isr.o irq.o
 OUT = obj
 
 ASFLAGS = -f elf64

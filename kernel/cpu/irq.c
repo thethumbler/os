@@ -77,7 +77,7 @@ void irq_ack(uint32_t irq_no) {
 
 extern uint32_t int_num;
 void irq_handler(regs_t *regs) {
-	debug("Recieved IRQ %x\n", int_num);
+	//debug("Recieved IRQ %x\n", int_num);
 	void (*handler)(regs_t *regs);
 	if (int_num > 47 || int_num < 32) {
 		handler = NULL;
@@ -86,6 +86,7 @@ void irq_handler(regs_t *regs) {
 	}
 	if (handler) {
 		handler(regs);
+		irq_ack(int_num - 32);
 	} else {
 		irq_ack(int_num - 32);
 	}
@@ -93,5 +94,8 @@ void irq_handler(regs_t *regs) {
 
 void timer(regs_t *regs)
 {
-	debug("Recieved timer\n");
+	static uint32_t counter = 0;
+	//debug(" %d ", counter);
+	if(!(counter++%18))
+		debug("One second passed\n");
 }

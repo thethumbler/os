@@ -24,11 +24,16 @@ void kmain(void)
 	kernel_end = (uint64_t)&kend/0x1000*0x1000 + ((uint64_t)&kend%0x1000?0x1000:0x0);
 	kernel_heap_ptr = (uint8_t*)((uint64_t)&VMA + kernel_end + heap_size) ;
 	KPD = (uint64_t*)((uint64_t)&VMA + kernel_end + 0x4000);
-	//dump_mem(mboot_info);
+	dump_mem(mboot_info);
 
 	idt_install();
-	//asm("sti");
-	//asm("int $80");
+	isr_install();
+	
+	asm("int $0x3");
+	extern void timer();
+	irq_install_handler(0, timer);
+	irq_install();
+	asm("sti");
 	*(char*)(0xB8002) = 'K';
 	for(;;);
 }

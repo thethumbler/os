@@ -1,7 +1,7 @@
 
 include ../Makefile.cfg
 
-OBJ = idt.o cpu.o
+OBJ = idt.o cpu.o isr.o irq.o
 OUT=../obj
 
 ASFLAGS = -f elf64

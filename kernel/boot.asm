@@ -17,9 +17,9 @@ real_start:
 	mov [mboot_info], ebx
 	
 	; Disable IRQs
-    mov al, 0xFF         ; Out 0xFF to 0xA1 and 0x21 to disable all IRQs.
-    out 0xA1, al
-    out 0x21, al
+    ;mov al, 0xFF         ; Out 0xFF to 0xA1 and 0x21 to disable all IRQs.
+    ;out 0xA1, al
+    ;out 0x21, al
 	
 	extern kstart, kend
 	; Get heap address

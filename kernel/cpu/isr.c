@@ -72,12 +72,12 @@ static const char *msg[32] = {
 	"Reserved"
 };
 
-void interrupt()
+void interrupt(regs_t *regs)
 {
+	debug("rsp : %lx\n", regs->rsp);
 	extern uint32_t int_num;
 	extern uint32_t err_num;
 	debug("Recieved interrupt [%x] : %s\n", int_num, msg[int_num]);
-	if(int_num == 0xD) while(1);
 }
 
 void isr_install(void) {
@@ -113,10 +113,4 @@ void isr_install(void) {
 	idt_set_gate(0x1D, isr29, 0x08, 0x8E);
 	idt_set_gate(0x1E, isr30, 0x08, 0x8E);
 	idt_set_gate(0x1F, isr31, 0x08, 0x8E);
-	idt_set_gate(100,  isr100, 0x08, 0x8E);
 }
-
-/*
-void fault_error(regs_t *regs) {
-	debug("recieved exception: [%d] %s", regs->num, exception_messages[regs->num]);
-}*/
