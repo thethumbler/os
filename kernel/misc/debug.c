@@ -47,6 +47,7 @@ static void debugud(uint32_t val)
 #ifdef _DEBUG_
 	uint8_t buf[11];
 	buf[10] = '\0';
+	if(!val) { buf[9] = '0'; debug(&buf[9]); }
 	uint8_t i = 10;
 	while(val)
 	{

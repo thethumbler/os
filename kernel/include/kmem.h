@@ -1,8 +1,9 @@
-#ifndef _MEM_H
-#define _MEM_H
+#ifndef _KMEM_H
+#define _KMEM_H
 
 #include <system.h>
 
+uint64_t *KPD;	// Kernel page directory
 uint8_t *kernel_heap_ptr;
 
 extern uint64_t total_mem;
@@ -24,5 +25,9 @@ typedef struct {
 
 mman_t mman;
 void *memset(void*, uint8_t, uint32_t);
+
+void vmem_init();
+void *kalloc(uint32_t);
+void free(void*);
 
 #endif
