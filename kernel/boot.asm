@@ -22,8 +22,26 @@ real_start:
     ;out 0x21, al
 	
 	extern kstart, kend
+	
 	; Get heap address
+	; Lets check if any modules are loaded
+	lea eax, [ ebx + 0x14 ]
+	mov eax, [eax]
+	or  eax, eax
+	jz no_modules_found
+	dec eax
+	lea ecx, [ ebx + 0x18 ]
+	mov ecx, [ecx]
+	mov ebx, 0x10
+	mul ebx
+	add eax, ecx
+	add eax, 0x4
+	mov eax, [eax]	; Now eax has the end address of the last module
+	jmp found_modules
+	
+	no_modules_found:
 	mov eax, kend
+	found_modules:
 	mov ebx, 0x1000
 	div ebx
 	mov ecx, edx
@@ -55,7 +73,7 @@ real_start:
 	
 	; Get kernel size in pages
 	xor edx, edx
-	mov eax, kend
+	mov eax, [heap_addr]	; Allocate up to heap address
 	mov ebx, 0x1000
 	div ebx
 	or edx, edx
@@ -211,10 +229,12 @@ real_start:
 	
 	
 GDT:
-    dq 0x0000000000000000
-    dq 0x0020980000000000
-    dq 0x0000900000000000
- 
+    dq 0x0000000000000000	; Null
+    dq 0x0020980000000000	; Kernel Code
+    dq 0x0000900000000000	; Kerned Data
+	dq 0x
+	dq 0x
+	
 ALIGN 4
     dw 0
 .Pointer:

@@ -78,6 +78,7 @@ void interrupt(regs_t *regs)
 	extern uint32_t int_num;
 	extern uint32_t err_num;
 	debug("Recieved interrupt [%x] : %s\n", int_num, msg[int_num]);
+	for(;;);
 }
 
 void isr_install(void) {

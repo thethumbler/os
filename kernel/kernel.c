@@ -8,10 +8,11 @@
 
 extern multiboot_info_t *mboot_info;
 extern uint32_t kernel_size;
+extern uint32_t heap_addr;
 extern uint32_t heap_size;
 extern uint32_t kernel_heap_size;
 extern uint32_t VMA;
-extern uint32_t kend;
+//extern uint32_t kend;
 uint64_t kernel_end;
 //uint8_t *kernel_heap_ptr;
 
@@ -21,7 +22,7 @@ void kmain(void)
 {
 	serial.init();
 	//serial.write_str("Hello, World");
-	kernel_end = (uint64_t)&kend/0x1000*0x1000 + ((uint64_t)&kend%0x1000?0x1000:0x0);
+	kernel_end = (uint64_t)heap_addr; //(uint64_t)&kend/0x1000*0x1000 + ((uint64_t)&kend%0x1000?0x1000:0x0);
 	kernel_heap_ptr = (uint8_t*)((uint64_t)&VMA + kernel_end + heap_size) ;
 	KPD = (uint64_t*)((uint64_t)&VMA + kernel_end + 0x4000);
 	map_mem(mboot_info);
@@ -35,7 +36,6 @@ void kmain(void)
 	//irq_install_handler(0, timer);
 	irq_install();
 	//asm("sti");
-	
 	
 	*(char*)(0xB8002) = 'K';
 	for(;;);
