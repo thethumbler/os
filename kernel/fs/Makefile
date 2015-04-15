@@ -1,7 +1,7 @@
 
 include ../Makefile.cfg
 
-OBJ = io.o serial.o debug.o string.o
+OBJ = vfs.o initramfs.o
 OUT=../obj
 
 CFLAGS = -c -I ../include/ -mcmodel=large -nostdlib -ffreestanding
@@ -14,3 +14,4 @@ $(OUT)/%.o: %.c
 	
 clean:
 	rm -f $(OBJ)
+

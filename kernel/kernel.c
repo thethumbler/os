@@ -4,7 +4,8 @@
 #include <serial.h>
 #include <debug.h>
 #include <kmem.h>
-
+#include <vfs.h>
+#include <initramfs.h>
 
 extern multiboot_info_t *mboot_info;
 extern uint32_t kernel_size;
@@ -36,6 +37,20 @@ void kmain(void)
 	//irq_install_handler(0, timer);
 	irq_install();
 	//asm("sti");
+	
+ 	void *ramdisk = 
+ 		((multiboot_module_t*)mboot_info->mods_addr)->mod_start;
+
+	inode_t *rootfs = initramfs.load(ramdisk);
+
+	vfs_mount_root(rootfs);
+	//vfs_tree(vfs_root);
+	
+	file_t *test = vfs_fopen("/sys/test", "r");
+	uint8_t *buf = kmalloc(test->size);
+	vfs_read(buf, test->size, test);
+	
+	debug("\n\nreading file /sys/test:\n%s\n", buf);
 	
 	*(char*)(0xB8002) = 'K';
 	for(;;);
