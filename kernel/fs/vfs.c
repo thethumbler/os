@@ -86,7 +86,7 @@ void vfs_tree(inode_t *node)
 			{
 				if(level > 1)
 					for(i = 1; i < 2 * level - 2; ++i) debug(" ");
-				debug("→");
+				debug("→ ");
 				
 				inode_t *tmp = node->list->head;
 				uint32_t k = 0;
@@ -100,11 +100,9 @@ void vfs_tree(inode_t *node)
 	}
 }
 
-void vfs_read(void *ptr, uint32_t size, file_t *file)
+void vfs_read(inode_t *inode, void *buf, uint64_t len)
 {
-	while(file->pos < file->size && size--)
-		*(uint8_t*)ptr++ = file->buf[file->pos++];
-	*(uint8_t*)ptr = '\0';
+	inode->fs->read(inode, buf, len);
 }
 
 file_t *vfs_fopen(uint8_t *path, uint8_t *mode)
@@ -112,4 +110,10 @@ file_t *vfs_fopen(uint8_t *path, uint8_t *mode)
 	inode_t *inode = vfs_trace_path(vfs_root, path);
 	if(!inode) return NULL;
 	return inode->fs->open(inode);
+}
+
+void vfs_write(inode_t *inode, void *buf, uint64_t len)
+{
+	debug("inode %lx\n", inode);
+	inode->fs->write(inode, buf, len);
 }

@@ -1,6 +1,8 @@
 #include <system.h>
 #include <isr.h>
 #include <debug.h>
+#include <syscall.h>
+#include <process.h>
 
 extern void isr0 (void);
 extern void isr1 (void);
@@ -34,7 +36,43 @@ extern void isr28(void);
 extern void isr29(void);
 extern void isr30(void);
 extern void isr31(void);
-extern void isr100(void);
+extern void isr128(void);
+
+
+regs_t r;
+
+void syscall_int(regs_t *regs)
+{
+	current_process->stat.rax = regs->rax;
+	current_process->stat.rdx = regs->rdx;
+	current_process->stat.rcx = regs->rcx;
+	current_process->stat.rbx = regs->rbx;
+	current_process->stat.rsp = regs->rsp;
+	current_process->stat.rbp = regs->rbp;
+	current_process->stat.rsi = regs->rsi;
+	current_process->stat.rdi = regs->rdi;
+	current_process->stat.r8  = regs->r8;
+	current_process->stat.r9  = regs->r9;
+	current_process->stat.r10 = regs->r10;
+	current_process->stat.r11 = regs->r11;
+	current_process->stat.r12 = regs->r12;
+	current_process->stat.r13 = regs->r13;
+	current_process->stat.r14 = regs->r14;
+	current_process->stat.r15 = regs->r15;
+	current_process->stat.rip = regs->rip;
+	current_process->stat.rflags = regs->rflags;
+	
+	void (*f)(uint64_t, uint64_t, uint64_t) = sys_calls[regs->rax];
+	f(regs->rbx, regs->rcx, regs->rdx);
+	return;
+	/*uint8_t *str = msg;
+	uint8_t *v = (uint8_t*)0xFFFFFFFFC00B8000;
+	while(*str)
+	{
+		*v = *str++;
+		v += 2;
+	}*/
+}
 
 
 static const char *msg[32] = {
@@ -74,14 +112,14 @@ static const char *msg[32] = {
 
 void interrupt(regs_t *regs)
 {
-	debug("rsp : %lx\n", regs->rsp);
-	extern uint32_t int_num;
-	extern uint32_t err_num;
-	debug("Recieved interrupt [%x] : %s\n", int_num, msg[int_num]);
+	extern uint64_t int_num;
+	extern uint64_t err_num;
+	debug("rip -> %lx\n", regs->rip);
+	debug("Recieved interrupt [%d] [%x] : %s\n", (uint32_t)int_num, err_num, msg[int_num]);
 	for(;;);
 }
 
-void isr_install(void) {
+void isr_install(void) {	
 	idt_set_gate(0x00,  isr0,  0x08, 0x8E);
 	idt_set_gate(0x01,  isr1,  0x08, 0x8E);
 	idt_set_gate(0x02,  isr2,  0x08, 0x8E);
@@ -114,4 +152,5 @@ void isr_install(void) {
 	idt_set_gate(0x1D, isr29, 0x08, 0x8E);
 	idt_set_gate(0x1E, isr30, 0x08, 0x8E);
 	idt_set_gate(0x1F, isr31, 0x08, 0x8E);
+	idt_set_gate(0x80, isr128, 0x08, 0xEE);
 }

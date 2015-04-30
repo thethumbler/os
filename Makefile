@@ -17,4 +17,4 @@ clean:
 	rm -f iso/initrd
 	
 try: cd.iso
-	qemu-system-x86_64 cd.iso -m 256M -serial stdio
+	qemu-system-x86_64 cd.iso -m 1G -serial stdio -enable-kvm

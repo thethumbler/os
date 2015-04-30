@@ -1,7 +1,5 @@
 bits 32
 
-kernel_init_heap equ 4
-
 section .text
 
 global _start
@@ -12,6 +10,11 @@ _start:
 	dd 0x1BADB002
 	dd 3
 	dd -(0x1BADB002 + 3)
+	times 5 dd 0
+	dd 0
+	dd 640
+	dd 480
+	dd 32
 
 real_start:
 	mov [mboot_info], ebx
@@ -71,6 +74,20 @@ real_start:
 	._skip2:
 	mov [boot_size_ptables], eax
 	
+	; Get total Memory size and set kernel init heap accordingly
+	mov ebx, [mboot_info]
+	add ebx, 0x4
+	mov eax, [ebx]
+	add ebx, 0x4
+	add eax, [ebx]
+	mov ebx, 0xC
+	mul ebx
+	mov ebx, 0xA
+	div ebx			; Now eax holds the size of 120% of memory reported by GrUB
+	mov ebx, 0x8000000
+	div ebx
+	mov [kernel_init_heap], eax
+
 	; Get kernel size in pages
 	xor edx, edx
 	mov eax, [heap_addr]	; Allocate up to heap address
@@ -80,7 +97,7 @@ real_start:
 	jz .skip3
 	inc eax
 	.skip3:
-	mov ecx, kernel_init_heap
+	mov ecx, [kernel_init_heap]
 	mov [kernel_heap_size], ecx
 	add eax, ecx
 	mov [kernel_size], eax
@@ -110,7 +127,7 @@ real_start:
 	mov edi, [heap_addr]
 	; Setup first PDPT
 	lea eax, [edi + 0x1000]
-	or eax, 3
+	or eax, 7
 	mov [edi], eax
 	; Setup second PDPT
 	add eax, 0x1000
@@ -119,7 +136,7 @@ real_start:
 	
 	; Setup first PDPT with first PD
 	mov edi, [heap_addr]
-	lea eax, [edi + 0x3003]
+	lea eax, [edi + 0x3007]
 	add edi, 0x1000
 	mov [edi], eax
 	
@@ -219,7 +236,7 @@ real_start:
  
     mov ebx, cr0                      ; Activate long mode -
     or ebx,0x80000001                 ; - by enabling paging and protection simultaneously.
-    mov cr0, ebx                    
+    mov cr0, ebx
 
     lgdt [GDT.Pointer]                ; Load GDT.Pointer defined below.
  
@@ -228,30 +245,74 @@ real_start:
 	jmp $
 	
 	
+%macro GDT 4
+  dw %2 & 0xFFFF
+  dw %1
+  db %1 >> 16
+  db %3
+  db (%2 >> 16) & 0x0F | (%4 << 4)
+  db %1 >> 24
+%endmacro
+
+%define offset(addr) ( 0x100000 + addr - $$ )
+%macro GDT64 4
+  dw %2 & 0xFFFF
+  dw %1 & 0xFFFF
+  db %1 >> 16
+  db %3
+  db (%2 >> 16) & 0x0F | (%4 << 4)
+  db %1 >> 24
+  dd (%1 >> 32)
+  dd 0
+%endmacro
+
 GDT:
-    dq 0x0000000000000000	; Null
-    dq 0x0020980000000000	; Kernel Code
-    dq 0x0000900000000000	; Kerned Data
-	dq 0x
-	dq 0x
-	
+    GDT 0, 0, 0, 0
+  	GDT 0, 0xfffff, 10011010b, 1010b ; ring0 cs (all mem)
+  	GDT 0, 0xfffff, 10010010b, 1010b ; ring0 ds (all mem)
+  	GDT 0, 0xfffff, 11111010b, 1010b ; ring3 cs (all mem), sz=0, L=1 for 64-bit
+	GDT 0, 0xfffff, 11110010b, 1010b ; ring3 ds (all mem), sz=0, L=1 for 64-bit
+	GDT64 0xFFFFFFFFC0000000 + offset(tss64), (end_tss64 - tss64), 11101001b, 0001b
+    
 ALIGN 4
     dw 0
 .Pointer:
     dw $ - GDT - 1
+    .p:
     dd GDT
+    dd 0
+    
+align 8
+; See "TASK MANAGEMENT IN 64-BIT MODE" of http://download.intel.com/products/processor/manual/325384.pdf
+tss64:
+  dd 0
+global k_tss64_sp
+k_tss64_sp:
+  dq 0 ; rsp will be set to this value when switching back to kernel
+  TIMES 23 dd 0
+end_tss64:
+
 
 bits 64
 longmode:
-	mov ax, 0x10
+  	mov ax, 0x10
 	mov ds, ax
 	mov es, ax
 	mov fs, ax
-    
+	mov gs, ax
+	mov ss, ax
+	mov rsp, 0xFFFFFFFFC0000000 + stack_end
+	
+	mov eax, [GDT.p]
+	add rax, 0xFFFFFFFFC0000000
+	mov [GDT.p], rax
+	lgdt [GDT.Pointer]
+	
+	;jmp $
+
 	extern kmain
 	call kmain
 	jmp $
-	
 
 global mboot_info
 mboot_info: dq 0
@@ -264,8 +325,16 @@ boot_ptable_addr: dd 0
 global kernel_size
 kernel_size: dd 0
 kernel_size_ptables: dd 0
+global kernel_ptable_addr
 kernel_ptable_addr: dd 0
 global kernel_heap_size
 kernel_heap_size: dd 0
+global kernel_init_heap
+kernel_init_heap: dd 0
 global heap_size
 heap_size: dd 0
+
+section .bss
+stack_start:
+	resb 8*1024
+stack_end:

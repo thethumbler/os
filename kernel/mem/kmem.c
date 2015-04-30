@@ -1,6 +1,8 @@
 #include <system.h>
 #include <debug.h>
 #include <kmem.h>
+#include <multiboot.h>
+#include <string.h>
 
 /*
  *
@@ -16,9 +18,10 @@ uint64_t bitmap_frames_count;	// Must be multible of 8
 
 void *heap_alloc(uint32_t size)
 {
+	//debug("Allocating %d from heap\n", size);
 	void *ptr = kernel_heap_ptr;
 	kernel_heap_ptr += size;
-	debug("Kenrel heap moved to 0x%lx\n", kernel_heap_ptr);
+	//debug("Kenrel heap moved to 0x%lx\n", kernel_heap_ptr);
 	return ptr;
 }
 
@@ -76,7 +79,7 @@ static uint32_t bitmap_check(uint64_t addr)
 
 static void bitmap_set_usable(uint64_t addr, uint64_t size)
 {
-	debug("Setting memory at address %lx and size %ld as usable\n", addr, size); 
+	//debug("Setting memory at address %lx and size %ld as usable\n", addr, size); 
 	uint32_t pages_count = size/4096;
 	while(pages_count--)
 	{
@@ -87,7 +90,7 @@ static void bitmap_set_usable(uint64_t addr, uint64_t size)
 
 static void bitmap_set_unusable(uint64_t addr, uint64_t size)
 {
-	debug("Setting memory at address %lx and size %ld as unusable\n", addr, size); 
+	//debug("Setting memory at address %lx and size %ld as unusable\n", addr, size); 
 	uint32_t pages_count = size/4096;
 	while(pages_count--)
 	{
@@ -112,7 +115,7 @@ static uint64_t bitmap_get_frame()
 			return bitmap_clear(i*0x1000);
 		++i;
 	}
-	debug("Can't find free page frame\n");
+	//debug("Can't find free page frame\n");
 }
 
 static uint64_t bitmap_get_frames(uint32_t count)
@@ -126,33 +129,26 @@ static uint64_t bitmap_get_frames(uint32_t count)
 					return bitmap_set_pages(k*0x1000, count);
 		++i;
 	}
-	debug("Can't find contigouos page frames\n");
+	//debug("Can't find contigouos page frames\n");
 }
 
 void bitmap_dump()
 {
-	debug("Dump of Bitmap : size = %d B\n", bitmap_frames_count/8);
+	//debug("Dump of Bitmap : size = %d B\n", bitmap_frames_count/8);
 	uint64_t x = 0;
 	uint64_t y = 0;
 	while( y < bitmap_frames_count/8/4 )
 	{
-		debug("0x%x : ", y * 32 * 0x1000);
+		//debug("0x%x : ", y * 32 * 0x1000);
 		while( x < 4 )
 		{
-			debug("%b ", bitmap[4*y + x]);
+			//debug("%b ", bitmap[4*y + x]);
 			++x;
 		}
 		x = 0;
 		++y;
-		debug("\n");
+		//debug("\n");
 	}
-}
-
-void *memset(void *addr, uint8_t val, uint32_t size)
-{
-	uint8_t *_addr = (uint8_t*)addr;
-	while(size--) *_addr++ = val;
-	return (void*)addr;
 }
 
 mman_t mman = {
@@ -169,7 +165,39 @@ mman_t mman = {
 	.dump = &bitmap_dump,
 };
 
-
+void map_mem(multiboot_info_t *mboot)
+{
+	//debug("Kernel heap starts at 0x%lx\n", kernel_heap_ptr);
+	uint32_t total = mboot->mem_lower + mboot->mem_upper;
+	//debug("Total usable memory %d KiB\n", total);
+	multiboot_memory_map_t 
+	*mmap = (multiboot_memory_map_t*)(uint64_t)mboot->mmap_addr;
+	uint64_t max_mmap = mboot->mmap_addr + mboot->mmap_length;
+	
+	while( ((uint64_t)mmap) < max_mmap )
+	{
+		total_mem += mmap->len;
+		if(mmap->type==1) total_usable_mem += mmap->len;
+		mmap = (multiboot_memory_map_t*)(uint64_t)
+				((uint64_t)mmap + mmap->size + sizeof(uint32_t));
+	}
+	
+	//debug("Total Mem = %lx\n", total_mem);
+	mman.setup(total_mem);
+	mmap = (multiboot_memory_map_t*)(uint64_t)mboot->mmap_addr;
+	
+	while( ((uint64_t)mmap + mmap->size + sizeof(uint32_t)) < max_mmap )
+	{
+		uint64_t len = mmap->len;
+		//debug("%lx => %lx : %s\n", mmap->addr, mmap->addr + mmap->len, 
+		//		mmap->type==1?"usable":"unusable");
+		if(mmap->type==1) mman.set_usable(mmap->addr, mmap->len);
+		mmap = (multiboot_memory_map_t*)(uint64_t)
+				((uint64_t)mmap + mmap->size + sizeof(uint32_t));
+			
+	}
+	mman.set_unusable(0, kernel_end + heap_size + kernel_heap_size * 0x1000); 
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -220,24 +248,26 @@ void kfree(void *addr);
 
 void dump_nodes()
 {
-	debug("Nodes dump\n");
+	//debug("Nodes dump\n");
 	vmem_node_t *tmp = head;
 	do {
-		debug("Node : %lx\n", tmp);
-		debug("   |_ Addr   : %lx\n", ALLOC_START + (uint64_t)tmp->addr);
-		debug("   |_ free ? : %s\n", tmp->free?"yes":"no");
-		debug("   |_ Size   : %d B [ %d KiB ]\n", 
-			(tmp->size + 1) * 4, (tmp->size + 1) * 4/1024 );
-		debug("   |_ Next   : %lx\n", (vmem_node_t*)NODES + tmp->next );
+		//debug("Node : %lx\n", tmp);
+		//debug("   |_ Addr   : %lx\n", ALLOC_START + (uint64_t)tmp->addr);
+		//debug("   |_ free ? : %s\n", tmp->free?"yes":"no");
+		//debug("   |_ Size   : %d B [ %d KiB ]\n", 
+		//	(tmp->size + 1) * 4, (tmp->size + 1) * 4/1024 );
+		//debug("   |_ Next   : %lx\n", (vmem_node_t*)NODES + tmp->next );
 	} while(tmp->next && (tmp = (vmem_node_t*)NODES + tmp->next));
 
 }
 
 void vmem_init()
 {
-	VMPD = mman.get_frame();
-	*VMPD = (uint64_t)VMPD | 3;
-	*(uint64_t*)((uint64_t)&VMA + heap_addr + 0x2FF0) = (uint64_t)VMPD | 3;
+	//for(;;);	// XXX ... memory in not allocated ... figure out a solution !
+	uint64_t* _VMPD = mman.get_frame();
+	*(uint64_t*)((uint64_t)&VMA + (uint64_t)_VMPD) = (uint64_t)_VMPD | 3;
+	*(uint64_t*)((uint64_t)&VMA + heap_addr + 0x2FF0) = (uint64_t)_VMPD | 3;
+	VMPD = (uint64_t)&VMA + (uint64_t)_VMPD;
 
 	nodes_bitmap_table = mman.get_frame();
 	*(VMPD + 1) = (uint64_t)nodes_bitmap_table | 3;
@@ -295,22 +325,30 @@ static vmem_node_t *get_node()
 
 void map_to_physical(void *ptr, uint32_t size)
 {
+	//debug("Mapping %d to physical ptr : %lx\n", size, ptr);
 	uint32_t tables_count = size/0x200000 + (size%0x200000?1:0);
 	uint32_t pages_count = size/0x1000 + (size%0x1000?1:0);
 	uint64_t index = ((uint64_t)ptr&0xFFFFFFF)/0x200000;
+	uint64_t pindex = ((uint64_t)ptr&0xFFFFF)/0x1000;
 	uint64_t *init_table = 0xFFFFFFFF80000000 + index * 0x8;
-	uint64_t *init_page = 0xFFFFFFFF80000000 + index * 0x1000;
+	uint64_t *init_page = 0xFFFFFFFF80000000 + index * 0x1000 + 0x8 * pindex;
+	//debug("Mapping at %x [%d] %lx %lx\n", (uint32_t)index, (uint32_t)pindex, init_table, init_page);
 	uint32_t i;
 	for(i = 0; i < tables_count; ++i)
+	{
+		//debug("T %lx : %lx\n", init_table + i, *(init_table + i));
 		if(!(*(init_table+i)&1))
 			*(init_table+i) = mman.get_frame() | 3;
+	}
 	for(i = 0; i < pages_count; ++i)
 		if(!(*(init_page+i)&1))
 			*(init_page+i) = mman.get_frame() | 3;
+	TLB_flush();
 }
 
 void unmap_from_physical(void *ptr, uint32_t size)
 {
+	//debug("Unmapping %d B at #%lx\n", size, ptr);
 	uint32_t tables_count = size/0x200000;
 	tables_count -= tables_count?((uint64_t)ptr%0x20000)?1:0:0;
 	
@@ -318,12 +356,14 @@ void unmap_from_physical(void *ptr, uint32_t size)
 	pages_count -= pages_count?((uint64_t)ptr%0x1000)?1:0:0;
 	
 	uint64_t index = ((uint64_t)ptr&0xFFFFFFF)/0x200000;
-	uint64_t *init_table = 0xFFFFFFFF80000000 + index * 0x8;
-	init_table += (uint64_t)ptr%0x200000?1:0;
-	uint64_t *init_page = 0xFFFFFFFF80000000 + index * 0x1000;
-	init_page += (uint64_t)ptr%0x1000?1:0;
-	//debug("ptr = %lx, init_page = %lx\n", ptr, init_page);
-	
+	uint64_t pindex = ((uint64_t)ptr&0xFFFFF)/0x1000;
+	uint64_t *init_table = 0xFFFFFFFF80000000 + index * 0x8 
+		+ (tables_count?(((uint64_t)ptr)/0x20000?0x8:0):0);
+	uint64_t *init_page = 0xFFFFFFFF80000000 + index * 0x1000 + 0x8 * pindex
+		+ (pages_count?(((uint64_t)ptr)/0x1000?0x8:0):0);
+		
+	//debug("init_table = %lx, init_page = %lx\n", init_table, init_page);
+
 	uint32_t i;
 	for(i = 0; i < pages_count; ++i)
 		if((*(init_page+i)&1))	// We better make sure it's set
@@ -338,8 +378,7 @@ void unmap_from_physical(void *ptr, uint32_t size)
 			mman.set(*(init_table+i));
 			*(init_table+i) = 0;
 		}
-	
-	
+	TLB_flush();
 }
 
 void *kmalloc(uint32_t size)
@@ -356,7 +395,7 @@ void *kmalloc(uint32_t size)
 	return NULL;
 	
 	found_valid_node:
-	//debug("Found a valid node at %lx [%d] \n", tmp, (tmp->size + 1) * 4);
+	////debug("Found a valid node at %lx [%d] \n", tmp, (tmp->size + 1) * 4);
 	map_to_physical( ALLOC_START + (uint64_t)tmp->addr, size);
 	if( size == (tmp->size + 1) * 4 )
 	{

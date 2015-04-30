@@ -50,7 +50,6 @@ static inode_t *rootfs_load(void *ptr)
 		inode_type type = ((cpio->mode & 0170000 ) == 0040000)?FS_DIR:FS_FILE;
 
 		void *data = name + cpio->namesize + cpio->namesize%2;
-		
 		inode_t *new_node = kmalloc(sizeof(inode_t));
 		
 		*new_node = 
@@ -60,7 +59,7 @@ static inode_t *rootfs_load(void *ptr)
 				.size = size,
 				.type = type,
 				.fs = &initramfs,
-				.p = data,
+				.p = 0xFFFFFFFFC0000000 + data,
 			};
 			
 		vfs_create(rootfs, *path?path:"/", new_node);

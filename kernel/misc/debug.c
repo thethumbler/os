@@ -90,6 +90,7 @@ static void debugb(uint8_t val)
 
 void debug(uint8_t *fmt, ...)
 {
+#ifdef _DEBUG_
 	va_list args;
 	va_start(args, fmt);
 	
@@ -140,4 +141,5 @@ void debug(uint8_t *fmt, ...)
 			++fmt;
 	}
 	va_end(args);
+#endif
 }

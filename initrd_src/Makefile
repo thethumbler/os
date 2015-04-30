@@ -1,3 +1,11 @@
+include ../kernel/Makefile.cfg
 
-all:
+APPS = init shell hw
+
+all: $(APPS)
 	cd ../initrd; find . | cpio -H bin -o > ../iso/initrd
+	
+% : %.c
+	$(CC) $(CFLAGS) -z max-page-size=0x1000 -nostdlib -Wl,-Ttext,0x0 \
+	$< -o ../initrd/$@ ../libc/libc.a -I ../libc/include
+

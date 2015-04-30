@@ -5,8 +5,10 @@
 
 typedef struct
 {
-	uint64_t rdi, rsi, rbp, rsp, ebx, ecx, edx, eax;
-	uint64_t rip, cs, eflags, _rsp, ss;
+	uint64_t 
+		r15, r14, r13, r12, r11, r10, r9, r8,
+		rdi, rsi, rbp, rbx, rcx, rdx, rax,
+		rip, cs, rflags, rsp, ss;
 } __attribute__((packed)) regs_t;
 
 #endif

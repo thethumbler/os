@@ -1,18 +1,34 @@
 bits 64
 
+extern gdt_ptr
+global gdt_flush
+gdt_flush:
+	mov rax, gdt_ptr
+	lgdt [rax]
+	ret
+
 extern idt_ptr
 global idt_flush
 idt_flush:
 	mov rax, idt_ptr
 	lidt [rax]
 	ret
+	
+global load_tss
+load_tss:
+	;extern tss_ptr
+	ltr [rel tss_ptr]
+	ret
+
+tss_ptr:
+	dw 0x28
 
 ; We emulate iretq .... ugly !
-%macro iretq 0
-	mov rax, qword [rsp]
-	add rsp, 40
-	jmp rax
-%endmacro
+;%macro iretq 0
+;	mov rax, qword [rsp]
+;	add rsp, 40
+;	jmp rax
+;%endmacro
 
 %macro pusha 0
 	push rax
@@ -37,8 +53,8 @@ idt_flush:
 %endmacro
 
 global int_num, err_num
-int_num: dw 0
-err_num: dw 0
+int_num: dq 0
+err_num: dq 0
 
 %macro ISR_NOERR 1
 	global isr%1
@@ -92,12 +108,113 @@ ISR_NOERR 29
 ISR_NOERR 30
 ISR_NOERR 31
 
+
+%macro push_context 0
+	push rax
+	push rdx
+	push rcx
+	push rbx
+	push rbp
+	push rsi
+	push rdi
+	push r8
+	push r9
+	push r10
+	push r11
+	push r12
+	push r13
+	push r14
+	push r15
+%endmacro
+	
+%macro pop_context 0
+	pop r15
+	pop r14
+	pop r13
+	pop r12
+	pop r11
+	pop r10
+	pop r9
+	pop r8
+	pop rdi
+	pop rsi
+	pop rbp
+	pop rbx
+	pop rcx
+	pop rdx
+	;pop rax ;XXX RAX has to be poped manually
+%endmacro
+
 isr_handler:
-	pusha
+	push_context
 	mov rdi, rsp
 	extern interrupt
 	call interrupt
-	popa
+	pop_context
+	pop rax
+	iretq
+	
+global isr128
+isr128:
+	push_context
+	mov rdi, rsp
+	extern syscall_int
+	call   syscall_int
+	pop_context
+	pop rax
+	iretq
+
+	
+global switch_to_usermode
+switch_to_usermode:
+	cli
+	mov ax, 0x23
+	mov ds, ax
+	mov rax, 0x7FC0000000	; Stack
+	push qword 0x23
+	push rax
+	pushfq
+	pop rax
+	bts rax, 9
+	push rax
+	push qword 0x1B
+	push qword rdi
+	iretq
+
+global switch_context
+switch_context:
+	;pop_context
+	cli
+	mov rax, rsp
+	mov rsp, rdi
+	pop r15
+	pop r14
+	pop r13
+	pop r12
+	pop r11
+	pop r10
+	pop r9
+	pop r8
+	pop rdi
+	pop rsi
+	pop rbp
+	pop rbx
+	pop rcx
+	mov rdx, rsp
+	mov rsp, rax
+	mov ax, 0x23
+	mov ds, ax
+	mov rax, [rdx + 4*0x8] ; rsp
+	push qword 0x23
+	push rax
+	mov rax, [rdx + 3*0x8] ; rflags
+	bts rax, 9
+	push rax
+	push qword 0x1B
+	mov rax, [rdx + 2*0x8] ; rip
+	push qword rax
+	mov rax, [rdx + 0x8]	; rax
+	mov rdx, [rdx]			; rdx
 	iretq
 
 %macro IRQ 2
@@ -126,9 +243,10 @@ IRQ 13, 45
 IRQ 14, 46
 IRQ 15, 47
 irq_stub:
-	pusha
+	push_context
+	mov rdi, rsp
 	extern irq_handler
-	call irq_handler
-	popa
-	sti
+	call   irq_handler
+	pop_context
+	pop rax
 	iretq

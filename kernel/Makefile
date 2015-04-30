@@ -2,8 +2,9 @@
 include Makefile.cfg
 
 OBJ = boot.o kernel.o
-ALL_OBJ = boot.o kernel.o io.o serial.o debug.o string.o kmem.o idt.o \
-		  cpu.o isr.o irq.o vfs.o initramfs.o
+ALL_OBJ = boot.o kernel.o io.o serial.o debug.o string.o kmem.o gdt.o idt.o \
+		  cpu.o isr.o irq.o vfs.o initramfs.o process.o syscall.o scheduler.o \
+		  tty.o kbd.o
 OUT = obj
 
 ASFLAGS = -f elf64
@@ -17,6 +18,8 @@ kernel.elf: $(OBJ)
 	cd mem; make
 	cd cpu; make
 	cd fs; make
+	cd sys; make
+	cd devices; make
 	cd obj; $(CC) $(LDFLAGS) $(ALL_OBJ) -o ../$@
 	
 %.o : %.asm
@@ -30,6 +33,8 @@ clean:
 	cd mem; make clean
 	cd cpu; make clean
 	cd fs; make clean
+	cd sys; make clean
+	cd devices; make clean
 	rm -f obj/*.o
 	rm -f *.o kernel.elf
 
