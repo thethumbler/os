@@ -1,6 +1,9 @@
 #ifndef _VFS_H
 #define _VFS_H
 
+#include <system.h>
+#include <device.h>
+
 typedef struct filesystem_struct fs_t;
 typedef enum { FS_DIR, FS_FILE, FS_CHR } inode_type; 
 typedef struct inode_struct inode_t;
@@ -12,7 +15,7 @@ typedef struct filesystem_struct
 	uint8_t *name;
 	inode_t* (*load)(void*);
 	file_t* (*open)(inode_t*);
-	void (*read)(void*, uint64_t, file_t*);
+	void (*read)(inode_t*, void*, uint32_t);
 	void (*write)(inode_t*, void*, uint32_t);
 }fs_t;
 
@@ -24,6 +27,7 @@ struct inode_struct
 	inode_t 	*parent;
 	dentry_t	*list;
 	fs_t		*fs;
+	dev_t		*dev;
 	void		*p;	// To be used by filesystem handler
 	
 	inode_t		*next;	// For directories

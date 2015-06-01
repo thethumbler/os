@@ -58,7 +58,7 @@ SYS(sys_execv)	// rbx path
 {
 	extern void exec_process(uint8_t*);
 	uint8_t *p = strdup(rbx);
-	debug("SS %s [%d]\n", p, strlen(p));
+	debug("execv %s\n", p);
 	exec_process(p);
 }
 

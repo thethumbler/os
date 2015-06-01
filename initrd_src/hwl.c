@@ -5,12 +5,10 @@
 
 void _start()
 {	
-	if(!fork())
+	while(1)
 	{
-		execv("/shell", 0);
-		_exit(0);
+		write(0, "Hello, World!\n", 14);
+		long x = 5000000;
+		while(--x);
 	}
-	//uint64_t status;
-	//wait(&status);
-	for(;;);
 }

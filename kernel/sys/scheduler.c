@@ -47,7 +47,7 @@ void schedule(regs_t *regs)
 	extern void irq_ack(uint32_t);
 	irq_ack(0);
 	static uint32_t x = 0;
-	//if(x++%5) return;
+	//if(x++%32) return;
 	
 	debug("Scheduling\n");	
 	dump_processes();

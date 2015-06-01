@@ -116,6 +116,11 @@ void interrupt(regs_t *regs)
 	extern uint64_t err_num;
 	debug("rip -> %lx\n", regs->rip);
 	debug("Recieved interrupt [%d] [%x] : %s\n", (uint32_t)int_num, err_num, msg[int_num]);
+	if((uint32_t)int_num == 14)
+	{
+		extern void dump_nodes();
+		//dump_nodes();
+	}
 	for(;;);
 }
 

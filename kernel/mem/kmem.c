@@ -248,15 +248,15 @@ void kfree(void *addr);
 
 void dump_nodes()
 {
-	//debug("Nodes dump\n");
+	debug("Nodes dump\n");
 	vmem_node_t *tmp = head;
 	do {
-		//debug("Node : %lx\n", tmp);
-		//debug("   |_ Addr   : %lx\n", ALLOC_START + (uint64_t)tmp->addr);
-		//debug("   |_ free ? : %s\n", tmp->free?"yes":"no");
-		//debug("   |_ Size   : %d B [ %d KiB ]\n", 
-		//	(tmp->size + 1) * 4, (tmp->size + 1) * 4/1024 );
-		//debug("   |_ Next   : %lx\n", (vmem_node_t*)NODES + tmp->next );
+		debug("Node : %lx\n", tmp);
+		debug("   |_ Addr   : %lx\n", ALLOC_START + (uint64_t)tmp->addr);
+		debug("   |_ free ? : %s\n", tmp->free?"yes":"no");
+		debug("   |_ Size   : %d B [ %d KiB ]\n", 
+			(tmp->size + 1) * 4, (tmp->size + 1) * 4/1024 );
+		debug("   |_ Next   : %lx\n", (vmem_node_t*)NODES + tmp->next );
 	} while(tmp->next && (tmp = (vmem_node_t*)NODES + tmp->next));
 
 }
@@ -327,7 +327,7 @@ void map_to_physical(void *ptr, uint32_t size)
 {
 	//debug("Mapping %d to physical ptr : %lx\n", size, ptr);
 	uint32_t tables_count = size/0x200000 + (size%0x200000?1:0);
-	uint32_t pages_count = size/0x1000 + (size%0x1000?1:0);
+	uint32_t pages_count = size/0x1000 + (size%0x1000?1:0) + ((uint64_t)ptr%0x1000?1:0);
 	uint64_t index = ((uint64_t)ptr&0xFFFFFFF)/0x200000;
 	uint64_t pindex = ((uint64_t)ptr&0xFFFFF)/0x1000;
 	uint64_t *init_table = 0xFFFFFFFF80000000 + index * 0x8;

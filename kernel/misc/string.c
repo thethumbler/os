@@ -24,7 +24,7 @@ uint32_t strcmp(uint8_t *str1, uint8_t *str2)
 
 void *memcpy(void *dst, void *src, uint64_t size)
 {
-	while(size--) *(uint8_t*)dst = *(uint8_t*)src;
+	while(size--) *(uint8_t*)dst++ = *(uint8_t*)src++;
 }
 
 uint8_t *strcat(uint8_t *str1, uint8_t *str2)
@@ -62,4 +62,14 @@ uint8_t *itoa(uint32_t val)
 		val /= 10;
 	}
 	return (uint64_t)&buf[i];
+}
+
+uint8_t *strndup(uint8_t *src, uint32_t len)
+{
+	uint8_t *ret = kmalloc(len + 1);
+	uint32_t i;
+	for(i = 0; i < len; ++i)
+		ret[i] = src[i];
+	ret[i] = '\0';
+	return ret;
 }

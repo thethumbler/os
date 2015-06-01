@@ -11,6 +11,9 @@
 #include <tty.h>
 #include <kbd.h>
 #include <vbe.h>
+#include <ext2.h>
+#include <ata.h>
+#include <string.h>
 
 void map_mem(multiboot_info_t*);
 
@@ -56,7 +59,7 @@ void kmain(void)
 	//asm("movw %%ax, 0x28; ltr %%ax":::"ax" );
 	//for(;;);
 	outb(0x43, 0x36);
-	uint32_t div = 1193180/100;	// 50 Hz
+	uint32_t div = 1193180/50;	// 50 Hz
 	outb(0x40, div & 0xFF);
 	outb(0x40, (div >> 8) & 0xFF);
 	extern void timer();
@@ -86,9 +89,19 @@ void kmain(void)
 	//tty_switch(1);
 	//vfs_write(vfs_trace_path(vfs_root, "/dev/ttym"), 0, 0);
 	
-	irq_install_handler(1, kbd_handler);
+	//for(;;);
 	
+	irq_install_handler(1, kbd_handler);
+
 	process_t *init = load_elf("/init");
+	
+	extern inode_t *ext2_load(void *_);
+	ext2_load(&atadev);
+	
+	
+	
+	//assert(1, 0, "Critical");
+	
 	extern void spawn_init(process_t*);
 	spawn_init(init);
 	

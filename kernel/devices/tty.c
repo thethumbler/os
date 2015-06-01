@@ -16,7 +16,7 @@ inode_t *ttym;
 typedef struct
 {
 	uint8_t *vmem;			// Video Memory
-	uint32_t cur_tty;	// Currently active tty
+	uint32_t cur_tty;		// Currently active tty
 } tty_master_device_t;
 
 static void tty_load_master(void *ptr)
@@ -189,20 +189,22 @@ uint8_t kbd_us_shift[] =
 
 static uint8_t shift = 0, alt = 0;
 static uint8_t flush = 0;
-static uint8_t *_buf;
+//static uint8_t *_buf;
 static uint32_t i = 0;
-static uint32_t _len = 0;
-static process_t *p;
+//static uint32_t _len = 0;
+//static process_t *p;
 
 void tty_kbd(uint8_t scancode)
 {
-	uint64_t cur_pdpt = 0;
-	if(p) cur_pdpt = switch_pdpt(p->pdpt);
-	
+
 	uint64_t cur_tty_id = (uint64_t)((tty_master_device_t*)((tty_device_t*)ttym->p)->master)->cur_tty;
 	uint8_t *cur_tty_str = strcat("/dev/tty", itoa(cur_tty_id));
 	debug("cur_tty %s\n", cur_tty_str);
 	inode_t *cur_tty = vfs_trace_path(vfs_root, cur_tty_str);
+	tty_device_t *_tty = cur_tty->p;
+	uint64_t cur_pdpt = 0;
+	if(_tty->p) cur_pdpt = switch_pdpt(_tty->p->pdpt);
+	
 	uint8_t buf[2];
 
 	if(scancode == SHIFT)   { shift = 1; goto done; }
@@ -232,14 +234,16 @@ void tty_kbd(uint8_t scancode)
 		else buf[0] = kbd_us[scancode];
 		buf[1] = '\0';
 		tty_write(cur_tty, buf, 1);
-		(i < _len)?(_buf[i++] = buf[0]):(_buf[i] = '\0');
+		(i < _tty->len)?(_tty->buf[i++] = buf[0]):(_tty->buf[i] = '\0');
 		if(kbd_us[scancode] == '\n') 
 		{
-				if(_buf)_buf[i] = '\0';
+				if(_tty->buf)_tty->buf[i] = '\0';
 				i = 0;
-				if(p)
-				p->status = READY;
-				p = NULL;
+				if(_tty->p)
+					_tty->p->status = READY;
+				_tty->p = NULL;
+				_tty->buf = NULL;
+				_tty->len = 0;
 		}
 	}
 	
@@ -250,10 +254,11 @@ void tty_kbd(uint8_t scancode)
 
 void tty_read(inode_t *tty, void *buf, uint64_t len)
 {
-	if(!p) p = current_process;
-	p->status = WAITING;
-	_buf = buf;
-	_len = len;
+	tty_device_t *_tty = tty->p;
+	if(!_tty->p) _tty->p = current_process;
+	_tty->p->status = WAITING;
+	_tty->buf = buf;
+	_tty->len = len;
 }
 
 fs_t devtty = 

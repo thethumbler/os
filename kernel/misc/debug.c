@@ -3,16 +3,15 @@
 #include <debug.h>
 #include <va_list.h>
 
+#if _DEBUG_ > 0
+
 static void debugs(uint8_t *str)
 {
-#ifdef _DEBUG_
 	serial.write_str(str);
-#endif
 }
 
 static void debugx(uint32_t val)
 {
-#ifdef _DEBUG_
 	uint8_t *enc = "0123456789ABCDEF";
 	uint8_t buf[9];
 	buf[8] = '\0';
@@ -23,12 +22,10 @@ static void debugx(uint32_t val)
 		val >>= 4;
 	}
 	debug(buf);
-#endif
 }
 
 static void debuglx(uint64_t val)
 {
-#ifdef _DEBUG_
 	uint8_t *enc = "0123456789ABCDEF";
 	uint8_t buf[17];
 	buf[16] = '\0';
@@ -39,12 +36,10 @@ static void debuglx(uint64_t val)
 		val >>= 4;
 	}
 	debug(buf);
-#endif
 }
 
 static void debugud(uint32_t val)
 {
-#ifdef _DEBUG_
 	uint8_t buf[11];
 	buf[10] = '\0';
 	if(!val) { buf[9] = '0'; debug(&buf[9]); }
@@ -55,12 +50,10 @@ static void debugud(uint32_t val)
 		val = (val-val%10)/10;
 	}
 	debug(buf+i);
-#endif
 }
 
 static void debugul(uint64_t val)
 {
-#ifdef _DEBUG_
 	uint8_t buf[21];
 	buf[20] = '\0';
 	uint8_t i = 20;
@@ -70,12 +63,10 @@ static void debugul(uint64_t val)
 		val = (val-val%10)/10;
 	}
 	debug(buf+i);
-#endif
 }
 
 static void debugb(uint8_t val)
 {
-#ifdef _DEBUG_
 	uint8_t buf[9];
 	buf[8] = '\0';
 	uint8_t i = 8;
@@ -85,12 +76,10 @@ static void debugb(uint8_t val)
 		val >>= 1;
 	}
 	debug(buf);
-#endif
 }
 
 void debug(uint8_t *fmt, ...)
 {
-#ifdef _DEBUG_
 	va_list args;
 	va_start(args, fmt);
 	
@@ -141,5 +130,6 @@ void debug(uint8_t *fmt, ...)
 			++fmt;
 	}
 	va_end(args);
-#endif
 }
+
+#endif

@@ -257,6 +257,8 @@ void fork_process(process_t *p)
 	new_process->size = p->size;
 	new_process->pid = get_pid();
 	new_process->fds = p->fds;
+	new_process->fds.ent = kmalloc(new_process->fds.max_len * sizeof(inode_t*));
+	memcpy(new_process->fds.ent, p->fds.ent, p->fds.max_len * sizeof(inode_t*));
 	new_process->status = READY;
 	
 	map_mem_user(new_process->pdpt, 0x0, p->size);
@@ -307,6 +309,7 @@ void exec_process(uint8_t *path)
 	//proc->pdpt = get_pdpt();
 	kfree(current_process->name);
 	current_process->name = strdup(path);
+	debug("CP %s\n", current_process->name);
 	//proc->pid  = get_pid();
 	
 	uint32_t size = elf->text_size + elf->data_size;

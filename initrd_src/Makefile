@@ -1,6 +1,6 @@
 include ../kernel/Makefile.cfg
 
-APPS = init shell hw
+APPS = init shell hw shell2 ext hwl
 
 all: $(APPS)
 	cd ../initrd; find . | cpio -H bin -o > ../iso/initrd
