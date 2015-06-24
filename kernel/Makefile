@@ -4,37 +4,54 @@ include Makefile.cfg
 OBJ = boot.o kernel.o
 ALL_OBJ = boot.o kernel.o io.o serial.o debug.o string.o kmem.o gdt.o idt.o \
 		  cpu.o isr.o irq.o vfs.o initramfs.o process.o syscall.o scheduler.o \
-		  tty.o kbd.o ata.o ext2.o
+		  tty.o kbd.o ata.o ext2.o mouse.o signal.o fpu.o
 OUT = obj
 
 ASFLAGS = -f elf64
 CFLAGS = -c -I include/ -mcmodel=large -nostdlib -ffreestanding
 LDFLAGS = -T ../link.ld -mcmodel=large -nostdlib -ffreestanding \
 		  -z max-page-size=0x1000
+CPPFLAGS = -I include/ -P
+NODIR = --no-print-directory
 
 kernel.elf: $(OBJ)
-	cp $(OBJ) $(OUT)
-	cd misc; make
-	cd mem; make
-	cd cpu; make
-	cd fs; make
-	cd sys; make
-	cd devices; make
-	cd obj; $(CC) $(LDFLAGS) $(ALL_OBJ) -o ../$@
+	${CP} $(OBJ) $(OUT) 
+	
+	@cd misc; make $(NODIR)
+	@cd mem; make $(NODIR)
+	@cd cpu; make $(NODIR)
+	@cd fs; make $(NODIR)
+	@cd sys; make $(NODIR)
+	@cd devices; make $(NODIR)
+	@cd obj; $(LD) $(LDFLAGS) $(ALL_OBJ) -o ../$@
 	
 %.o : %.asm
-	$(AS) $(ASFLAGS) $< -o $@
+	$(CPP) $(CPPFLAGS) $< -o $<"_tmp__"
+	$(AS) $(ASFLAGS) -o $@ $<"_tmp__"
+	@rm $<"_tmp__"
 
 %.o : %.c
 	$(CC) $(CFLAGS) $< -o $@
 
 clean:
-	cd misc; make clean
-	cd mem; make clean
-	cd cpu; make clean
-	cd fs; make clean
-	cd sys; make clean
-	cd devices; make clean
-	rm -f obj/*.o
-	rm -f *.o kernel.elf
+	@echo -n -e "\033[0;31m"; \
+	cd misc; make clean $(NODIR)
+	
+	@echo -n -e "\033[0;31m"; \
+	cd mem; make clean $(NODIR)
+	
+	@echo -n -e "\033[0;31m"; \
+	cd cpu; make clean $(NODIR)
+	
+	@echo -n -e "\033[0;31m"; \
+	cd fs; make clean $(NODIR)
+	
+	@echo -n -e "\033[0;31m"; \
+	cd sys; make clean $(NODIR)
+	
+	@echo -n -e "\033[0;31m"; \
+	cd devices; make clean $(NODIR)
+	
+	@rm -f obj/*.o
+	@rm -f *.o kernel.elf
 

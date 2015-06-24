@@ -1,5 +1,9 @@
-#ifndef vbe_h_included
-#define vbe_h_included
+#ifndef VBE_H
+#define VBE_H
+
+#include <system.h>
+
+// This file is from virtualbox.org
 
 // DISPI helper function
 //void dispi_set_enable(Boolean enable);

@@ -6,6 +6,8 @@
 void _start()
 {
 	open("/dev/tty0", 0);
+	open("/dev/tty0", 0);
+	
 	char buf[100];
 	while(1)
 	{
@@ -24,6 +26,10 @@ void _start()
 						break;
 					}
 				execv(buf, 0);
+				write(0, "Program ", 8);
+				write(0, buf, 100);
+				write(0, " not found\n", 12);
+				_exit(0);
 				for(;;);	// We should never reach this anyway
 			}
 			uint64_t stat;

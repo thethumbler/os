@@ -5,12 +5,8 @@
 
 void _start()
 {
-	if(fork()) //Parent
-	{
-		int s = 5000000;
-		while(s--);
-		_exit(0);
-	}
+	if(fork()) _exit(0);
+	
 	close(0);
 	int k = open("/dev/tty1", 0);
 	

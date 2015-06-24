@@ -4,12 +4,15 @@
 #include <debug.h>
 #include <elf.h>
 #include <kmem.h>
+#include <fpu.h>
+#include <signal.h>
+#include <string.h>
 
 extern process_t *current_process;
 
 typedef struct
 {
-	file_t *file;
+	uint8_t  *buf;
 	uint64_t entry;
 	uint32_t text_off;
 	uint32_t text_size;
@@ -19,16 +22,19 @@ typedef struct
 	uint64_t data_addr;
 } elf_t;
 
-elf_t *parse_elf(file_t *file)
+elf_t *parse_elf(inode_t *file)
 {
+	uint8_t *buf = kmalloc(file->size);
+	file->fs->read(file, 0, file->size, buf);
+	
 	elf_t *ret = kmalloc(sizeof(elf_t));
-	elf_hdr_t *hdr = file->buf;
-	elf_section_hdr_t *text = file->buf + hdr->shoff + hdr->shentsize;
-	elf_section_hdr_t *data = file->buf + hdr->shoff + 2 * hdr->shentsize;
+	elf_hdr_t *hdr = (elf_hdr_t*)buf;
+	elf_section_hdr_t *text = (elf_section_hdr_t*)(buf + hdr->shoff + hdr->shentsize);
+	elf_section_hdr_t *data = (elf_section_hdr_t*)(buf + hdr->shoff + 2 * hdr->shentsize);
 	*ret = 
 		(elf_t)
 		{
-			.file = file,
+			.buf = buf,
 			.entry = hdr->entry,
 			.text_off  = text->off,
 			.text_size = text->size,
@@ -63,9 +69,9 @@ void map_mem_user(uint64_t pdpt, uint64_t *ptr, uint32_t size)
 	//debug("Index [%d]\n", index);
 	
 	uint64_t
-		*init_pd   = 0x7FFFFFF000 + 0x8 * dindex - 0x8, 
-		*init_tbl  = 0x7FFFE00000 + 0x8 * tindex - 0x8,
-		*init_page = 0x7FC0000000 + 0x8 * pindex - 0x8;
+		*init_pd   = (uint64_t*)(0x7FFFFFF000 + 0x8 * dindex - 0x8), 
+		*init_tbl  = (uint64_t*)(0x7FFFE00000 + 0x8 * tindex - 0x8),
+		*init_page = (uint64_t*)(0x7FC0000000 + 0x8 * pindex - 0x8);
 	
 	//debug("ipd  %lx\nitbl %lx\nip   %lx\n", init_pd + 1, init_tbl + 1, init_page + 1);
 
@@ -81,6 +87,7 @@ void map_mem_user(uint64_t pdpt, uint64_t *ptr, uint32_t size)
 void unmap_mem_user(uint64_t pdpt, uint64_t *ptr, uint32_t size)
 {
 	uint64_t cur_pdpt = switch_pdpt(pdpt);
+	memset(ptr, 0, size);
 	
 	uint32_t pages = size/0x1000 + (size%0x1000?1:0);
 	uint32_t tbls = pages/0x200 + (pages%0x200?1:0);
@@ -93,9 +100,9 @@ void unmap_mem_user(uint64_t pdpt, uint64_t *ptr, uint32_t size)
 	//debug("Index [%d]\n", index);
 	
 	uint64_t
-		*init_pd   = 0x7FFFFFF000 + 0x8 * dindex - 0x8, 
-		*init_tbl  = 0x7FFFE00000 + 0x8 * tindex - 0x8,
-		*init_page = 0x7FC0000000 + 0x8 * pindex - 0x8;
+		*init_pd   = (uint64_t*)(0x7FFFFFF000 + 0x8 * dindex - 0x8),
+		*init_tbl  = (uint64_t*)(0x7FFFE00000 + 0x8 * tindex - 0x8),
+		*init_page = (uint64_t*)(0x7FC0000000 + 0x8 * pindex - 0x8);
 	
 	//debug("ipd  %lx\nitbl %lx\nip   %lx\n", init_pd + 1, init_tbl + 1, init_page + 1);
 
@@ -127,21 +134,18 @@ void exit_process(process_t *p)
 {
 	debug("Exitinig process %s\n", p->name);
 	
-	memset(0, 0, p->size * 0x1000);
 	unmap_mem_user(p->pdpt, 0, p->size * 0x1000);
-	unmap_mem_user(p->pdpt, 0x7FC0000000 - 0x8000, 0x8000);
+	unmap_mem_user(p->pdpt, 
+		(uint64_t*)(USER_STACK - USER_STACK_SIZE), USER_STACK_SIZE);
 	
 	//for(;;);
 	
-	if(p->parent->status == WAITING_CHILD) 
-	{
-		p->parent->status = READY;
-		//schedule_process(p->parent);
-	}
-	
+	if(p->parent)
+		signal_send(p->parent, SIGCHLD);
+
 	//mman.set(p->pdpt);
 	extern void	deschedule_process(process_t*);
-	deschedule_process(current_process);
+	deschedule_process(p);
 	kfree(p->name);
 	kfree(p);
 	//switch_pdpt(cur_pdpt);
@@ -157,7 +161,7 @@ uint64_t get_pdpt()
 	extern uint64_t kernel_end;
 	*PML4 = ((uint64_t)kernel_end) | 3;
 	*(uint64_t*)(0x8) = pdpt | 3;
-	memset(0x1000, 0, 0x1000 - 0x8);
+	memset((void*)0x1000, 0, 0x1000 - 0x8);
 	*(uint64_t*)(0x1FF8) = pdpt | 3;
 	*PML4 = _pdpt;
 	TLB_flush();
@@ -172,7 +176,7 @@ uint64_t get_pid()
 
 process_t *load_elf(char *filename)
 {	
-	file_t *file = vfs_fopen(filename, NULL);
+	inode_t *file = vfs_trace_path(vfs_root, filename);
 	elf_t  *elf  = parse_elf(file);
 
 	process_t *proc = kmalloc(sizeof(process_t));	
@@ -186,10 +190,11 @@ process_t *load_elf(char *filename)
 	
 	proc->fds.len = 0;
 	proc->fds.max_len = 5;
-	proc->fds.ent = kmalloc( 5 * sizeof(inode_t*));
+	proc->fds.ent = kmalloc(5 * sizeof(process_file_t));
 
-	map_mem_user(proc->pdpt, 0x0, size );
-	map_mem_user(proc->pdpt, 0x7FC0000000 - 0x8000, 0x8000);	// Stack
+	map_mem_user(proc->pdpt, 0x0, size ); // Heap
+	map_mem_user(proc->pdpt, 
+		(uint64_t*)(USER_STACK - USER_STACK_SIZE), USER_STACK_SIZE); // Stack
 	
 	uint64_t cur_pdpt = switch_pdpt(proc->pdpt);
 
@@ -197,53 +202,48 @@ process_t *load_elf(char *filename)
 	uint8_t *load = 0x0;
 	uint32_t i;
 	for(i = 0; i < size; ++i)
-		*(load+i) = elf->file->buf[elf->text_off + i];
+		*(load+i) = elf->buf[elf->text_off + i];
 	
-	kfree(file->buf);
-	kfree(file);
+	kfree(elf->buf);
 	kfree(elf);
 
 	proc->stat.rip = 0;
-	proc->stat.rsp = 0x7FC0000000;
+	proc->stat.rsp = USER_STACK;
 
 	switch_pdpt(cur_pdpt);
 	return proc;
-	//debug("Starting process %s [%d]\n", filename, size);
-
-	//extern process_t *process_queue;
-	//schedule_process(current_process);
 }
 
 void switch_process(process_t *p)
 {
+	if(current_process->fstat)
+		save_fpu();
+		
+	if(!p->fstat)
+		disable_fpu();
+	
 	debug("Switching process\n");
 	debug("RIP  %lx\n", p->stat.rip);
 	switch_pdpt(p->pdpt);
-	extern void switch_context(stat_t*);
+	if(p->sigqueue) // Any pending signals !?
+	{
+		void *stack = (void*)p->stat.rsp;
+		stack -= sizeof(stat_t);
+		memcpy(stack, &p->stat, sizeof(stat_t));
+		stack -= sizeof(uint64_t);
+		*(uint64_t*)stack = -1;
+		p->stat.rsp = (uint64_t)stack;
+		signal_queue_t *q = p->sigqueue;
+		p->stat.rip = (uint64_t)p->handlers[q->signum].sa_handler;
+		p->sigqueue = q->next;
+		kfree(q);
+	}
 	switch_context(&p->stat);
 }
 
 void copy_process_stat(process_t *dest, process_t *src)
 {
-	// TODO : Optimzie this to memcpy()
-	dest->stat.rax = src->stat.rax;
-	dest->stat.rbx = src->stat.rbx;
-	dest->stat.rcx = src->stat.rcx;
-	dest->stat.rdx = src->stat.rdx;
-	dest->stat.rsi = src->stat.rsi;
-	dest->stat.rdi = src->stat.rdi;
-	dest->stat.rsp = src->stat.rsp;
-	dest->stat.rbp = src->stat.rbp;
-	dest->stat.r8  = src->stat.r8;
-	dest->stat.r9  = src->stat.r9;
-	dest->stat.r10 = src->stat.r10;
-	dest->stat.r11 = src->stat.r11;
-	dest->stat.r12 = src->stat.r12;
-	dest->stat.r13 = src->stat.r13;
-	dest->stat.r14 = src->stat.r14;
-	dest->stat.r15 = src->stat.r15;
-	dest->stat.rip = src->stat.rip;
-	dest->stat.rflags = src->stat.rflags;
+	memcpy(&dest->stat, &src->stat, sizeof(stat_t));
 }
 
 void fork_process(process_t *p)
@@ -251,21 +251,25 @@ void fork_process(process_t *p)
 	debug("Forking procss [%s]\n", p->name);
 	process_t *new_process = kmalloc(sizeof(process_t));
 	memcpy(new_process, p, sizeof(process_t));
-	new_process->name = strcat(p->name, " {fork}");
+	new_process->name = strcat(p->name, " (fork)");
 	new_process->parent = p;
 	new_process->pdpt = get_pdpt();
+
+	debug("%lx\n", new_process->pdpt);
+	
 	new_process->size = p->size;
 	new_process->pid = get_pid();
 	new_process->fds = p->fds;
-	new_process->fds.ent = kmalloc(new_process->fds.max_len * sizeof(inode_t*));
-	memcpy(new_process->fds.ent, p->fds.ent, p->fds.max_len * sizeof(inode_t*));
+	new_process->fds.ent = kmalloc(new_process->fds.max_len * sizeof(process_file_t*));
+	memcpy(new_process->fds.ent, p->fds.ent, p->fds.max_len * sizeof(process_file_t*));
 	new_process->status = READY;
 	
-	map_mem_user(new_process->pdpt, 0x0, p->size);
-	map_mem_user(new_process->pdpt, 0x7FC0000000 - 0x8000, 0x8000);	// Stack
+	map_mem_user(new_process->pdpt, 0x0, p->size); // Heap
+	map_mem_user(new_process->pdpt, 
+		(uint64_t*)(USER_STACK - USER_STACK_SIZE), USER_STACK_SIZE); // Stack
 	
 	uint8_t *buf = kmalloc( (p->size + 1) * 0x1000 );
-	uint8_t *stack = kmalloc( 0x9000 );
+	uint8_t *stack = kmalloc( USER_STACK_SIZE + 0x1000 );
 
 	uint64_t i;
 	// Copying heap
@@ -273,17 +277,16 @@ void fork_process(process_t *p)
 		*(buf+i) = *(uint8_t*)i;
 	// Copying stack	
 	for(i = 0; i < 0x8000; ++i)
-		*(stack+i) = *(uint8_t*)(0x7FC0000000 - 0x8000 + i);	
-
+		*(stack+i) = *(uint8_t*)(USER_STACK - USER_STACK_SIZE + i);	
+	
 	switch_pdpt(new_process->pdpt);
 	
 	// Restoring heap
 	for(i = 0; i < p->size * 0x1000; ++i)
 		*(uint8_t*)i = *(buf+i);
 	// Restoring stack	
-	for(i = 0; i < 0x8000; ++i)
-		*(uint8_t*)(0x7FC0000000 - 0x8000 + i) = *(stack+i);	
-		
+	for(i = 0; i < USER_STACK_SIZE; ++i)
+		*(uint8_t*)(USER_STACK - USER_STACK_SIZE + i) = *(stack+i);	
 		
 	kfree(buf);
 	kfree(stack);
@@ -296,20 +299,18 @@ void fork_process(process_t *p)
 
 	schedule_process(new_process);
 	kernel_idle();
-	//switch_process(current_process);
-	//switch_pdpt(current_process->pdpt);
 }
 
 void exec_process(uint8_t *path)
 {
-	file_t *file = vfs_fopen(path, NULL);
-	elf_t  *elf  = parse_elf(file);
+	inode_t *file = vfs_trace_path(vfs_root, path);
+	if(!file) return;
+	elf_t   *elf  = parse_elf(file);
 
 	//process_t *proc = kmalloc(sizeof(process_t));	
 	//proc->pdpt = get_pdpt();
 	kfree(current_process->name);
 	current_process->name = strdup(path);
-	debug("CP %s\n", current_process->name);
 	//proc->pid  = get_pid();
 	
 	uint32_t size = elf->text_size + elf->data_size;
@@ -318,7 +319,8 @@ void exec_process(uint8_t *path)
 	
 	// TODO : unmap extra allocated virtual address space
 	map_mem_user(current_process->pdpt, 0x0, size );
-	map_mem_user(current_process->pdpt, 0x7FC0000000 - 0x8000, 0x8000);	// Stack
+	map_mem_user(current_process->pdpt, 
+		(uint64_t*)(USER_STACK - USER_STACK_SIZE), USER_STACK_SIZE); // Stack
 	
 	uint64_t cur_pdpt = switch_pdpt(current_process->pdpt);
 
@@ -326,14 +328,13 @@ void exec_process(uint8_t *path)
 	uint8_t *load = 0x0;
 	uint32_t i;
 	for(i = 0; i < size; ++i)
-		*(load+i) = elf->file->buf[elf->text_off + i];
+		*(load+i) = elf->buf[elf->text_off + i];
 	
-	kfree(file->buf);
-	kfree(file);
+	kfree(elf->buf);
 	kfree(elf);
 
 	current_process->stat.rip = 0;
-	current_process->stat.rsp = 0x7FC0000000;
+	current_process->stat.rsp = USER_STACK;
 
 	switch_pdpt(cur_pdpt);
 	kernel_idle();
@@ -344,7 +345,15 @@ uint32_t get_fd(process_t *proc)
 	uint32_t i;
 	for(i = 0; i < proc->fds.len; ++i)
 	{
-		if(!proc->fds.ent[i]) return i;
+		if(!proc->fds.ent[i].inode) return i;
 	}
 	return proc->fds.len++;
+}
+
+uint32_t validate(process_t *proc, void *ptr)
+{
+	if( (uint64_t)ptr <= proc->heap * 0x1000 || 
+		((uint64_t)ptr <= USER_STACK && (uint64_t)ptr >= (USER_STACK - USER_STACK_SIZE)))
+			return 1;
+	return 0;
 }

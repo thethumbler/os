@@ -1,7 +1,7 @@
 #ifndef _SYSTEM_H
 #define _SYSTEM_H
 
-#undef __STDC_HOSTED__
+//#undef __STDC_HOSTED__
 #include <stdint.h>
 
 #define SYS_EXIT	0
@@ -14,6 +14,8 @@
 #define SYS_SBRK	7
 #define SYS_GETPID	8
 #define SYS_WAIT	9
+#define SYS_KILL	10
+#define SYS_SIGNAL	11
 
 uint64_t syscall(uint64_t rax, uint64_t rbx, uint64_t rcx, uint64_t rdx);
 

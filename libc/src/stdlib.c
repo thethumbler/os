@@ -16,7 +16,7 @@ void *malloc(size_t size)
 {
 	char *__ = "\0\0\0\0\0\0\0\0";	// Nasty hack
 	
-	void **heap_start = __;
+	void **heap_start = (void**)__;
 	
 	/* User Dynamic Memory Allocator "malloc"
 	 * This function is used for dynamic memory allocation

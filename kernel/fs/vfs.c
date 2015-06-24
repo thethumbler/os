@@ -2,6 +2,7 @@
 #include <kmem.h>
 #include <debug.h>
 #include <vfs.h>
+#include <string.h>
 
 inode_t *vfs_root;
 
@@ -100,9 +101,9 @@ void vfs_tree(inode_t *node)
 	}
 }
 
-void vfs_read(inode_t *inode, void *buf, uint64_t len)
+void vfs_read(inode_t *inode, uint32_t offset, uint32_t len, void *buf)
 {
-	inode->fs->read(inode, buf, len);
+	inode->fs->read(inode, offset, len, buf);
 }
 
 file_t *vfs_fopen(uint8_t *path, uint8_t *mode)
@@ -114,6 +115,5 @@ file_t *vfs_fopen(uint8_t *path, uint8_t *mode)
 
 void vfs_write(inode_t *inode, void *buf, uint64_t len)
 {
-	debug("inode %lx\n", inode);
 	inode->fs->write(inode, buf, len);
 }

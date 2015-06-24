@@ -2,6 +2,7 @@
 #include <kmem.h>
 #include <vfs.h>
 #include <initramfs.h>
+#include <string.h>
 
 static file_t *rootfs_open(inode_t *inode)
 {
@@ -28,9 +29,7 @@ static inode_t *rootfs_load(void *ptr)
 	rootfs->list = kmalloc(sizeof(dentry_t));
 	dentry_t *list = rootfs->list;
 
-	list->count = 1;
-	list->head = kmalloc(sizeof(inode_t));
-	list->head->name = strdup("DIR");
+	list->count = 0;
 	
 	dentry_t *tmp;
 	
@@ -62,14 +61,26 @@ static inode_t *rootfs_load(void *ptr)
 				.p = 0xFFFFFFFFC0000000 + data,
 			};
 			
-		vfs_create(rootfs, *path?path:"/", new_node);
+		vfs_create(rootfs, *path ? path : (uint8_t*)"/", new_node);
 		
 		next:
 		cpio = (typeof(cpio))
-		(name + cpio->namesize + (cpio->namesize%2) + size + (size%2));
+			(name + cpio->namesize + (cpio->namesize%2) + size + (size%2));
 	}
 
 	return rootfs;
+}
+
+static uint32_t rootfs_read(inode_t *inode, uint32_t offset, uint32_t len, void *buf_p)
+{
+	uint8_t *buf = (uint8_t*)buf_p;
+	if(offset > inode->size) return 0;
+	uint32_t size = MIN(len, inode->size - offset), _size = size;
+	uint8_t *_buf = inode->p;
+	while(size--)
+		*buf++ = *_buf++;
+
+	return _size;
 }
 
 fs_t initramfs = 
@@ -78,5 +89,5 @@ fs_t initramfs =
 		.name = "initramfs",
 		.load = rootfs_load,
 		.open = rootfs_open,
-		.read = vfs_read,
+		.read = rootfs_read,
 	};

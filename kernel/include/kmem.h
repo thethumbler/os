@@ -41,7 +41,9 @@ void *memset(void*, uint8_t, uint32_t);
 
 void map_mem(multiboot_info_t*);
 void vmem_init();
-void *kalloc(uint32_t);
+void *kmalloc(uint32_t);
 void free(void*);
+
+void inline TLB_flush();
 
 #endif

@@ -35,7 +35,7 @@ tss64_t tss64;
 void setup_tss(void *_tss64)
 {
 	uint64_t limit = sizeof(tss64);
-	uint64_t base  = &tss64;
+	uint64_t base  = (uint64_t)&tss64;
 	
 	tss64_seg_t *tss64_seg = (tss64_seg_t*)_tss64;
 	*tss64_seg = 

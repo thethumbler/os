@@ -231,16 +231,16 @@ typedef struct vmem_node_t
 	uint32_t next: 22;
 }__attribute__((packed)) vmem_node_t;
 
-
+#define VMM_START			0xFFFFFFFF80000000
 #define NODES_BITMAP_TABLE	0xFFFFFFFF80001000
 #define NODES_BITMAP 		0xFFFFFFFF80200000
 #define NODES_TABLE			0xFFFFFFFF80002000
 #define NODES				0xFFFFFFFF80400000
 #define ALLOC_START			0xFFFFFFFF81400000
 
-vmem_node_t *head = NODES;
+vmem_node_t *head = (vmem_node_t*)NODES;
 
-static vmem_node_t *get_node();
+static uint32_t get_node();
 static void node_set(uint32_t id);
 static void node_clear(uint32_t id);
 void *kmalloc(uint32_t size);
@@ -263,25 +263,26 @@ void dump_nodes()
 
 void vmem_init()
 {
-	//for(;;);	// XXX ... memory in not allocated ... figure out a solution !
-	uint64_t* _VMPD = mman.get_frame();
+	uint64_t _VMPD = mman.get_frame();
+	
 	*(uint64_t*)((uint64_t)&VMA + (uint64_t)_VMPD) = (uint64_t)_VMPD | 3;
 	*(uint64_t*)((uint64_t)&VMA + heap_addr + 0x2FF0) = (uint64_t)_VMPD | 3;
-	VMPD = (uint64_t)&VMA + (uint64_t)_VMPD;
+	VMPD = (uint64_t*)((uint64_t)&VMA + (uint64_t)_VMPD);
 
-	nodes_bitmap_table = mman.get_frame();
+	nodes_bitmap_table = (uint64_t*)mman.get_frame();
 	*(VMPD + 1) = (uint64_t)nodes_bitmap_table | 3;
-	nodes_bitmap_table = NODES_BITMAP_TABLE;
+	nodes_bitmap_table = (uint64_t*)NODES_BITMAP_TABLE;
+
 	uint32_t i;
 	for(i = 0; i < 64; ++i)
 		*(nodes_bitmap_table + i) = mman.get_frame() | 3;
 
-	memset(NODES_BITMAP, -1, 26214);
+	memset((void*)NODES_BITMAP, -1, 26214);
 	
 	for(i = 0; i < 8; ++i)
 		*(VMPD + 2 + i) = mman.get_frame() | 3;
 		
-	uint64_t *nodes_table = NODES_TABLE;
+	uint64_t *nodes_table = (uint64_t*)NODES_TABLE;
 	for(i = 0; i < 512; ++i)
 		*(nodes_table + i) = mman.get_frame() | 3;
 		
@@ -299,23 +300,23 @@ void vmem_init()
 
 static uint8_t node_check(uint32_t id)
 {
-	uint8_t *addr = NODES_BITMAP + id/8;
+	uint8_t *addr = (uint8_t*)(NODES_BITMAP + id/8);
 	return (*addr>>(id%8))&1;
 }
 
 static void node_set(uint32_t id)
 {
-	uint8_t *addr = NODES_BITMAP + id/8;
+	uint8_t *addr = (uint8_t*)(NODES_BITMAP + id/8);
 	*addr |= 1 << id%8;
 }
 
 static void node_clear(uint32_t id)
 {
-	uint8_t *addr = NODES_BITMAP + id/8;
+	uint8_t *addr = (uint8_t*)(NODES_BITMAP + id/8);
 	*addr &= ~(1 << id%8);
 }
 
-static vmem_node_t *get_node()
+static uint32_t get_node()
 {
 	uint32_t i = -1; 
 	while(!node_check(++i));
@@ -323,16 +324,29 @@ static vmem_node_t *get_node()
 	return i; 
 }
 
-void map_to_physical(void *ptr, uint32_t size)
+#define PAGE_SIZE	0x1000
+#define TABLE_SIZE	0x200000
+#define REM(val, div)	((val%div)?1:0)
+#define DIV_ROUND_UP(val, div) (val/div + REM(val, div))
+#define ALIGN(val, alignment) (val / alignment * alignment)
+#define TABLE_MASK	0x3FE00000
+#define PAGE_MASK	0x1FFFFF
+
+void map_to_physical(uint64_t ptr, uint32_t size)
 {
-	//debug("Mapping %d to physical ptr : %lx\n", size, ptr);
-	uint32_t tables_count = size/0x200000 + (size%0x200000?1:0);
-	uint32_t pages_count = size/0x1000 + (size%0x1000?1:0) + ((uint64_t)ptr%0x1000?1:0);
-	uint64_t index = ((uint64_t)ptr&0xFFFFFFF)/0x200000;
-	uint64_t pindex = ((uint64_t)ptr&0xFFFFF)/0x1000;
-	uint64_t *init_table = 0xFFFFFFFF80000000 + index * 0x8;
-	uint64_t *init_page = 0xFFFFFFFF80000000 + index * 0x1000 + 0x8 * pindex;
-	//debug("Mapping at %x [%d] %lx %lx\n", (uint32_t)index, (uint32_t)pindex, init_table, init_page);
+	size += ptr%PAGE_SIZE;
+	
+	uint32_t tables_count = DIV_ROUND_UP(size, TABLE_SIZE) + (ptr&TABLE_MASK + size)/TABLE_SIZE;
+	uint32_t pages_count  = DIV_ROUND_UP(size, PAGE_SIZE);
+
+	uint64_t index  = (ptr&TABLE_MASK)/TABLE_SIZE;
+	uint64_t pindex = (ptr&PAGE_MASK)/PAGE_SIZE;
+	
+	uint64_t *init_table = (uint64_t*)(VMM_START + index * 0x8);
+	uint64_t *init_page  = (uint64_t*)(VMM_START + index * 0x1000 + 0x8 * pindex);
+	
+	//debug("Mapping #%lx [%d B][%d:%d]@%d\\%d\n", ptr, size, pages_count, tables_count, pindex, index);
+
 	uint32_t i;
 	for(i = 0; i < tables_count; ++i)
 	{
@@ -348,7 +362,7 @@ void map_to_physical(void *ptr, uint32_t size)
 
 void unmap_from_physical(void *ptr, uint32_t size)
 {
-	//debug("Unmapping %d B at #%lx\n", size, ptr);
+	debug("Unmapping #%lx [%d B]\n", ptr, size);
 	uint32_t tables_count = size/0x200000;
 	tables_count -= tables_count?((uint64_t)ptr%0x20000)?1:0:0;
 	
@@ -357,10 +371,10 @@ void unmap_from_physical(void *ptr, uint32_t size)
 	
 	uint64_t index = ((uint64_t)ptr&0xFFFFFFF)/0x200000;
 	uint64_t pindex = ((uint64_t)ptr&0xFFFFF)/0x1000;
-	uint64_t *init_table = 0xFFFFFFFF80000000 + index * 0x8 
-		+ (tables_count?(((uint64_t)ptr)/0x20000?0x8:0):0);
-	uint64_t *init_page = 0xFFFFFFFF80000000 + index * 0x1000 + 0x8 * pindex
-		+ (pages_count?(((uint64_t)ptr)/0x1000?0x8:0):0);
+	uint64_t *init_table = (uint64_t*)(0xFFFFFFFF80000000 + index * 0x8
+		+ (tables_count?(((uint64_t)ptr)/0x20000?0x8:0):0));
+	uint64_t *init_page = (uint64_t*)(0xFFFFFFFF80000000 + index * 0x1000 + 0x8 * pindex
+		+ (pages_count?(((uint64_t)ptr)/0x1000?0x8:0):0));
 		
 	//debug("init_table = %lx, init_page = %lx\n", init_table, init_page);
 
@@ -400,10 +414,10 @@ void *kmalloc(uint32_t size)
 	if( size == (tmp->size + 1) * 4 )
 	{
 		tmp->free = 0;
-		return ALLOC_START + (uint64_t)tmp->addr;
+		return (void*)(ALLOC_START + (uint64_t)tmp->addr);
 	}
 	uint32_t tmp_size = (tmp->size + 1) * 4 - size;
-	vmem_node_t *tmp_next = tmp->next;
+	uint32_t tmp_next = tmp->next;
 	tmp->next = get_node();
 	vmem_node_t *next_node = (vmem_node_t*)NODES + tmp->next;
 	*next_node = 
@@ -415,20 +429,21 @@ void *kmalloc(uint32_t size)
 		};
 	tmp->size = size / 4 - 1;
 	tmp->free = 0;
-	return ALLOC_START + (uint64_t)tmp->addr;
+	return (void*)(ALLOC_START + (uint64_t)tmp->addr);
 }
 
 void kfree(void *addr)
 {
+	return;
 	// let's search for this address
 	vmem_node_t *tmp = head;
-	while( tmp->next && (ALLOC_START + tmp->addr != addr) ) 
+	while( tmp->next && (ALLOC_START + tmp->addr != (uint64_t)addr) ) 
 		tmp = (vmem_node_t*)NODES + tmp->next;
-	if(ALLOC_START + tmp->addr != addr || 
-	( (ALLOC_START + tmp->addr == addr) && tmp->free ))	
+	if(ALLOC_START + tmp->addr != (uint64_t)addr || 
+	( (ALLOC_START + tmp->addr == (uint64_t)addr) && tmp->free ))	
 		return;	// Trying to free unallocated address 
 	
-	unmap_from_physical( ALLOC_START + tmp->addr, (tmp->size + 1) * 4);
+	unmap_from_physical( (void*)(ALLOC_START + tmp->addr), (tmp->size + 1) * 4);
 	if(((vmem_node_t*)NODES + tmp->next)->free)
 	{
 		// Found reclaimable area .. we must be lucky =D
@@ -443,7 +458,7 @@ void kfree(void *addr)
 	tmp->free = 1;
 }
 
-void __attribute__((always_inline)) TLB_flush()
+void inline TLB_flush()
 {
 	asm volatile("movq %%cr3, %%rax;movq %%rax, %%cr3":::"rax");
 }

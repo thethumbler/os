@@ -3,6 +3,7 @@
 #include <scheduler.h>
 #include <debug.h>
 #include <isr.h>
+#include <sys/types.h>
 
 typedef struct 
 {
@@ -35,6 +36,8 @@ void spawn_init(process_t *init)
 	process_queue.tail	= init;
 	process_queue.count = 1;
 	current_process = init;
+	
+	init->fstat = NULL;
 	//schedule_process(init);
 	switch_process(init);
 	//kernel_idle();
@@ -100,6 +103,13 @@ void schedule(regs_t *regs)
 	
 	// Otherwise we got nothing so we should just idle
 	kernel_idle();
+}
+
+process_t *process_by_pid(pid_t pid)
+{
+	process_t *p = process_queue.head;
+	while(p && p->pid != pid) p = p->next;
+	return p;
 }
 
 void schedule_process(process_t *p)

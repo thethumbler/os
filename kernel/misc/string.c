@@ -1,5 +1,6 @@
 #include <system.h>
 #include <string.h>
+#include <kmem.h>
 
 uint32_t strlen(uint8_t *str)
 {
@@ -61,7 +62,7 @@ uint8_t *itoa(uint32_t val)
 		buf[--i] = '0' + val%10;
 		val /= 10;
 	}
-	return (uint64_t)&buf[i];
+	return (uint8_t*)&buf[i];
 }
 
 uint8_t *strndup(uint8_t *src, uint32_t len)

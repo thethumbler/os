@@ -1,5 +1,7 @@
 bits 32
 
+#include <config.h>
+
 section .text
 
 global _start
@@ -8,13 +10,18 @@ _start:
 	jmp real_start
 	align 4
 	dd 0x1BADB002
+#if _GFX_
+	dd 7
+	dd -(0x1BADB002 + 7)
+#else
 	dd 3
 	dd -(0x1BADB002 + 3)
+#endif
 	times 5 dd 0
 	dd 0
-	dd 640
-	dd 480
-	dd 32
+	dd 1024
+	dd 768
+	dd 24
 
 real_start:
 	mov [mboot_info], ebx
@@ -245,7 +252,7 @@ real_start:
 	jmp $
 	
 	
-%macro GDT 4
+%macro GDTE 4
   dw %2 & 0xFFFF
   dw %1
   db %1 >> 16
@@ -258,20 +265,20 @@ real_start:
 %macro GDT64 4
   dw %2 & 0xFFFF
   dw %1 & 0xFFFF
-  db %1 >> 16
+  db (%1 >> 16) & 0xFF
   db %3
   db (%2 >> 16) & 0x0F | (%4 << 4)
-  db %1 >> 24
+  db (%1 >> 24) & 0xFF
   dd (%1 >> 32)
   dd 0
 %endmacro
 
 GDT:
-    GDT 0, 0, 0, 0
-  	GDT 0, 0xfffff, 10011010b, 1010b ; ring0 cs (all mem)
-  	GDT 0, 0xfffff, 10010010b, 1010b ; ring0 ds (all mem)
-  	GDT 0, 0xfffff, 11111010b, 1010b ; ring3 cs (all mem), sz=0, L=1 for 64-bit
-	GDT 0, 0xfffff, 11110010b, 1010b ; ring3 ds (all mem), sz=0, L=1 for 64-bit
+    GDTE 0, 0, 0, 0
+  	GDTE 0, 0xfffff, 10011010b, 1010b ; ring0 cs (all mem)
+  	GDTE 0, 0xfffff, 10010010b, 1010b ; ring0 ds (all mem)
+  	GDTE 0, 0xfffff, 11111010b, 1010b ; ring3 cs (all mem), sz=0, L=1 for 64-bit
+	GDTE 0, 0xfffff, 11110010b, 1010b ; ring3 ds (all mem), sz=0, L=1 for 64-bit
 	GDT64 0xFFFFFFFFC0000000 + offset(tss64), (end_tss64 - tss64), 11101001b, 0001b
     
 ALIGN 4

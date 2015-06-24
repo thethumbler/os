@@ -3,6 +3,7 @@
 
 #include <system.h>
 #include <process.h>
+#include <vfs.h>
 
 typedef struct tty_device_struct
 {

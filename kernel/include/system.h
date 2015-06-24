@@ -1,8 +1,7 @@
 #ifndef _SYSTEM_H
 #define _SYSTEM_H
 
-#define _DEBUG_ 1
-
+#include <config.h>
 #include <utypes.h>
 #include <debug.h>
 
@@ -21,6 +20,5 @@
 #else 
 #define assert(level, var, msg)
 #endif
-
 
 #endif

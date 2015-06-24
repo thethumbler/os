@@ -1,16 +1,16 @@
 
 include ../Makefile.cfg
 
-OBJ = tty.o kbd.o ata.o
+OBJ = tty.o kbd.o ata.o mouse.o fpu.o
 OUT=../obj
 
 CFLAGS = -c -I ../include/ -mcmodel=large -nostdlib -ffreestanding
 
 all: $(OBJ)
-	cp $(OBJ) $(OUT) 
+	${CP} $(OBJ) $(OUT) 
 	
 $(OUT)/%.o: %.c
 	$(CC) $(CFLAGS) $< -o $@
 	
 clean:
-	rm -f $(OBJ)
+	${RM} -f $(OBJ)

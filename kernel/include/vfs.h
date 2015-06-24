@@ -15,8 +15,8 @@ typedef struct filesystem_struct
 	uint8_t *name;
 	inode_t* (*load)(void*);
 	file_t* (*open)(inode_t*);
-	void (*read)(inode_t*, void*, uint32_t);
-	void (*write)(inode_t*, void*, uint32_t);
+	uint32_t (*read)(inode_t*, uint32_t, uint32_t, void*);
+	uint32_t (*write)(inode_t*, void*, uint32_t);
 }fs_t;
 
 struct inode_struct
@@ -53,7 +53,7 @@ inode_t *vfs_trace_path(inode_t*, uint8_t*);
 inode_t *vfs_create(inode_t*, uint8_t*, inode_t*);
 void vfs_tree(inode_t*);
 
-void vfs_read (inode_t*, void*, uint64_t);
+void vfs_read (inode_t*, uint32_t, uint32_t, void*);
 void vfs_write(inode_t*, void*, uint64_t);
 
 file_t *vfs_fopen(uint8_t*, uint8_t*);

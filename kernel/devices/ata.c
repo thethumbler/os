@@ -1,5 +1,7 @@
 #include <system.h>
 #include <ata.h>
+#include <kmem.h>
+#include <device.h>
 
 void ata_wait()
 {
@@ -41,8 +43,11 @@ void ata_read_sectors(uint32_t LBA, uint8_t sectors, void *buf)
 	asm("popfq");	// Restoring rflags register
 }
 
-void ata_read(dev_t *currently_unused, uint32_t addr, uint32_t size, void *buf)
+uint32_t ata_read(dev_t *currently_unused, uint32_t addr, uint32_t size, void *buf)
 {
+	/* TODO : Try to optimize this by doing some math 
+			  instead of being dumb and copying the contents */
+			  
 	uint32_t LBA = addr/512;
 	uint32_t offset = addr - 512 * LBA;
 	uint32_t sectors = size/512 + + (size%512?1:0);

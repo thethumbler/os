@@ -40,7 +40,7 @@ static void tty_load_master(void *ptr)
 void tty_switch(uint32_t tty)
 {
 	((tty_master_device_t*)((tty_device_t*)ttym->p)->master)->cur_tty = tty;
-	uint8_t *v = strcat("/dev/tty", (uint64_t)itoa(tty));
+	uint8_t *v = strcat("/dev/tty", (uint8_t*)itoa(tty));
 	inode_t *f = vfs_trace_path(vfs_root, v);
 	
 	uint8_t *vmem = ((tty_master_device_t*)((tty_device_t*)ttym->p)->master)->vmem;
@@ -55,11 +55,11 @@ void tty_switch(uint32_t tty)
    	outb(0x3D5, (uint8_t)((((tty_device_t*)f->p)->pos)/2 >> 8) & 0xFF);
 }
 
-static void tty_load(void *ptr)
+static inode_t *tty_load(void *ptr)
 {
-	if(!tty_master_set) return tty_load_master(ptr);
+	if(!tty_master_set) { tty_load_master(ptr); return NULL; }
 	inode_t *tty = kmalloc(sizeof(inode_t));
-	tty->name = strcat("tty", (uint64_t)itoa(tty_count));
+	tty->name = strcat("tty", (uint8_t*)itoa(tty_count));
 	tty->type = FS_FILE;
 	tty->fs = &devtty;
 	tty_device_t *tmp = kmalloc(sizeof(tty_device_t));
@@ -74,6 +74,7 @@ static void tty_load(void *ptr)
 	tty->p = tmp;
 	tty->size = 25 * 80 * 2;
 	vfs_create(vfs_root, "/dev/", tty);
+	return tty;
 }
 
 static void tty_scroll(uint8_t *ptr, uint32_t n)
@@ -90,9 +91,9 @@ static void tty_scroll(uint8_t *ptr, uint32_t n)
 
 }
 
-static void tty_write(inode_t *inode, void *_buf, uint32_t size)
+static uint32_t tty_write(inode_t *inode, void *_buf, uint32_t size)
 {
-	if(((tty_device_t*)inode->p)->is_master) return tty_switch((uint32_t)_buf);
+	if(((tty_device_t*)inode->p)->is_master) { tty_switch((uint32_t)(uint64_t)_buf); return 0; }
 	uint8_t *buf = _buf;
 	uint8_t *ptr = ((tty_device_t*)inode->p)->ptr;
 	uint32_t *pos = &((tty_device_t*)inode->p)->pos;
@@ -136,7 +137,15 @@ static void tty_write(inode_t *inode, void *_buf, uint32_t size)
 	done:
 	dum?(*pos -= 2):0;
 	
+#if _GFX_
+	debug("Drawing %s\n", _buf);
+	draw_str(_buf, 0, 0, -1);
+	//void draw_char(uint8_t, uint32_t, uint32_t, uint32_t);
+	//uint32_t i;
+	//for(i = 0; i < 200; i+=2)
+		//draw_char(((tty_device_t*)inode->p)->ptr[i], i/2%80*8*3, i/2/80*8*3, -1);
 
+#else	
 	if((uint64_t)((tty_master_device_t*)((tty_device_t*)ttym->p)->master)->cur_tty 
 		== (uint64_t)((tty_device_t*)inode->p)->id)
 	{
@@ -151,6 +160,8 @@ static void tty_write(inode_t *inode, void *_buf, uint32_t size)
 	    outb(0x3D4, 0x0E);
     	outb(0x3D5, (uint8_t)((*pos/2 >> 8) & 0xFF));
     }
+    
+#endif
 }
 
 static file_t *tty_open(inode_t *i)
@@ -199,7 +210,6 @@ void tty_kbd(uint8_t scancode)
 
 	uint64_t cur_tty_id = (uint64_t)((tty_master_device_t*)((tty_device_t*)ttym->p)->master)->cur_tty;
 	uint8_t *cur_tty_str = strcat("/dev/tty", itoa(cur_tty_id));
-	debug("cur_tty %s\n", cur_tty_str);
 	inode_t *cur_tty = vfs_trace_path(vfs_root, cur_tty_str);
 	tty_device_t *_tty = cur_tty->p;
 	uint64_t cur_pdpt = 0;
@@ -209,15 +219,14 @@ void tty_kbd(uint8_t scancode)
 
 	if(scancode == SHIFT)   { shift = 1; goto done; }
 	if(scancode == _SHIFT)  { shift = 0; goto done; }
-	if(scancode == LALT)	{ alt = 1; goto done; }
-	if(scancode == _LALT)	{ alt = 0; goto done; }
+	if(scancode == LALT)	{ alt   = 1; goto done; }
+	if(scancode == _LALT)	{ alt   = 0; goto done; }
 	
 	extern void tty_switch(uint32_t);
 	// Special keys
 	if(alt && scancode == ESC) 
 	{
-		//tty_switch(0);
-		vfs_write(vfs_trace_path(vfs_root, "/dev/ttym"), 0, 0);
+		tty_switch(0);
 		goto done;
 	}
 		
@@ -225,7 +234,6 @@ void tty_kbd(uint8_t scancode)
 	{
 		tty_switch(1);
 		goto done;
-		//vfs_write(vfs_trace_path(vfs_root, "/dev/ttym"), 1, 0);
 	}
 	
 	if(scancode < 60) 
@@ -235,13 +243,16 @@ void tty_kbd(uint8_t scancode)
 		buf[1] = '\0';
 		tty_write(cur_tty, buf, 1);
 		(i < _tty->len)?(_tty->buf[i++] = buf[0]):(_tty->buf[i] = '\0');
+		
+		if(buf[0] == '\b') { _tty->buf[--i] = '\0'; --i; }
+		
 		if(kbd_us[scancode] == '\n') 
 		{
 				if(_tty->buf)_tty->buf[i] = '\0';
 				i = 0;
 				if(_tty->p)
 					_tty->p->status = READY;
-				_tty->p = NULL;
+				_tty->p   = NULL;
 				_tty->buf = NULL;
 				_tty->len = 0;
 		}
@@ -252,7 +263,7 @@ void tty_kbd(uint8_t scancode)
 	return;
 }
 
-void tty_read(inode_t *tty, void *buf, uint64_t len)
+uint32_t tty_read(inode_t *tty, uint32_t offset_unused, uint32_t len, void *buf)
 {
 	tty_device_t *_tty = tty->p;
 	if(!_tty->p) _tty->p = current_process;
