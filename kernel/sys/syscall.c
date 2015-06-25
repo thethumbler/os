@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <signal.h>
 #include <string.h>
+#include <pit.h>
 
 void kernel_idle()
 {
@@ -50,7 +51,9 @@ SYS(sys_read)	// rbx fd, rcx buf, rdx len
 	inode_t *inode = current_process->fds.ent[rbx].inode;
 	debug("inode %lx\n", inode);
 	uint32_t offset = current_process->fds.ent[rbx].offset;
-	vfs_read(inode, offset, rdx, (void*)rcx);
+	uint32_t size = vfs_read(inode, offset, rdx, (void*)rcx);
+	current_process->fds.ent[rbx].offset += size;
+	current_process->stat.rax = size;
 	kernel_idle();
 }
 
@@ -105,16 +108,16 @@ SYS(sys_sbrk)	// rbx size
 {
 	debug("Allocating %d B for process %s\n", rbx, current_process->name);
 	uint64_t ret = current_process->heap;
-	if(current_process->size - current_process->heap > rbx)
+	if(current_process->size * 0x1000 - current_process->heap > rbx)
 	{
 		current_process->heap += rbx;
 		current_process->stat.rax = ret;
 		kernel_idle();
 	}
 	
-	uint64_t req_size = rbx - (current_process->size - current_process->heap);
-	uint64_t req_size_pages = req_size + (req_size%0x1000?0x1000:0);
-	map_mem_user(current_process->pdpt, current_process->size, req_size_pages);
+	uint32_t req_size = rbx - (current_process->size * 0x1000 - current_process->heap);
+	uint32_t req_size_pages = req_size/0x1000 + (req_size%0x1000?1:0);
+	map_mem_user(current_process->pdpt, current_process->size * 0x1000, req_size_pages * 0x1000);
 	current_process->size += req_size_pages;
 	current_process->heap += req_size;
 	current_process->stat.rax = ret;
@@ -170,6 +173,16 @@ SYS(sys_signal)	// rbx signum, rcx signal pointer
 	kernel_idle();
 }
 
+SYS(sys_usleep)	// rbx time in us
+{
+	debug("uSleep [%d us] on process %s\n", rbx, current_process->name);
+	current_process->wait_us = rbx;
+	current_process->ticks   = ticks;
+	current_process->sub_ticks = sub_ticks;
+	current_process->status = WAITING;
+	kernel_idle();
+}
+
 void *sys_calls[] = 
 {
 	sys_exit,
@@ -186,5 +199,6 @@ void *sys_calls[] =
 	//sys_yield,
 	sys_kill,
 	sys_signal,
+	sys_usleep,
 };
 

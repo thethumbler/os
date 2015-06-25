@@ -1,3 +1,5 @@
+include kernel/Makefile.cfg
+
 cd: cd.iso
 
 NODIR = --no-print-directory
@@ -32,11 +34,14 @@ hd.img:
 	@sudo umount tmp
 	@rm tmp -rf
 	
+OBJ = iso/kernel.elf iso/initrd cd.iso
 clean:
-	@cd kernel; make clean --no-print-directory
-	@rm -f cd.iso
-	@rm -f iso/kernel.elf
-	@rm -f iso/initrd
-	
+	@echo -e "\033[0;34mCleaning kernel/\033[0m"
+	@cd kernel; make clean $(NODIR)
+	@echo -e "\033[0;34mCleaning libc/\033[0m"
+	@cd libc; make clean $(NODIR)
+	@echo -e "\033[0;34mCleaning iso/\033[0m"
+	${RM} -f $(OBJ)
+
 try: cd.iso
-	qemu-system-x86_64 -cdrom cd.iso -m 1G -serial stdio -hda hd.img #-enable-kvm
+	qemu-system-x86_64 -cdrom cd.iso -m 1G -serial stdio -hda hd.img -enable-kvm

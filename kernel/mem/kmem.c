@@ -112,9 +112,24 @@ static uint64_t bitmap_get_frame()
 	while( i < bitmap_frames_count )
 	{
 		if(bitmap_check(i * 0x1000))
-			return bitmap_clear(i*0x1000);
+			break;
 		++i;
 	}
+
+	bitmap_clear(i*0x1000);
+
+	uint64_t tmp = *(KPD + 511);	
+	*(KPD + 511) = (kernel_end + 0x4000) | 3;
+	uint64_t tmp2 = *(uint64_t*)(0xFFFFFFFFFFFFFFF0);
+	*(uint64_t*)(0xFFFFFFFFFFFFFFF0) = i * 0x1000 | 3;
+	TLB_flush();
+	
+	memset((void*)0xFFFFFFFFFFFFE000, 0, 0x1000);
+	
+	*(uint64_t*)(0xFFFFFFFFFFFFFFF0) = tmp2;
+	*(KPD + 511) = tmp;
+	TLB_flush();
+	return i * 0x1000;
 	//debug("Can't find free page frame\n");
 }
 

@@ -16,6 +16,7 @@
 #define SYS_WAIT	9
 #define SYS_KILL	10
 #define SYS_SIGNAL	11
+#define SYS_USLEEP	12
 
 uint64_t syscall(uint64_t rax, uint64_t rbx, uint64_t rcx, uint64_t rdx);
 

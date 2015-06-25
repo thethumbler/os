@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <isr.h>
 #include <sys/types.h>
+#include <pit.h>
 
 typedef struct 
 {
@@ -79,7 +80,20 @@ void schedule(regs_t *regs)
 	process_t *p = current_process?current_process->next:NULL;
 	if(p)
 	{
-		while(p && p->status != READY) p = p->next;
+		while(p && p->status != READY) 
+		{
+			if(p->wait_us)
+			{
+				if(p->wait_us <= ((ticks - p->ticks) * pit_freq + (sub_ticks - p->sub_ticks)) * sub_tick_us)
+				{
+					p->status = READY;
+					p->wait_us = 0;
+					p->stat.rax = 0;
+					break;
+				}
+			}
+			p = p->next;
+		} 
 		// Now we either got a ready process or the last process
 		if(p && p->status == READY)
 		{
@@ -92,7 +106,21 @@ void schedule(regs_t *regs)
 	if(process_queue.head)
 	{
 		p = process_queue.head;
-		while(p && p->status != READY) p = p->next;
+		while(p && p->status != READY) 
+		{
+			if(p->wait_us)
+			{
+				if(p->wait_us <= ((ticks - p->ticks) * pit_freq + (sub_ticks - p->sub_ticks)) * sub_tick_us)
+				{
+					p->status = READY;
+					p->wait_us = 0;
+					p->stat.rax = 0;
+					break;
+				}
+			}
+			p = p->next;
+		}
+		
 		// Now we either got a ready process or the last process
 		if(p && p->status == READY)
 		{

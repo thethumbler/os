@@ -1,6 +1,6 @@
 include ../kernel/Makefile.cfg
 
-APPS = init shell hw ext shell2 sig
+APPS = init shell hw ext shell2 sig bf
 
 all: $(APPS)
 	@echo -n -e "\033[1;33mCreating initrd : \033[1;31m"

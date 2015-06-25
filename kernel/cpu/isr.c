@@ -139,8 +139,9 @@ void interrupt(regs_t *regs)
 {
 	extern uint64_t int_num;
 	extern uint64_t err_num;
-	debug("rip -> %lx\n", regs->rip);
+	debug("rip -> %lx\nrsp -> %lx\nrbp -> %lx\n", regs->rip, regs->rsp, regs->rbp);
 	debug("Recieved interrupt [%d] [%x] : %s\n", (uint32_t)int_num, err_num, msg[int_num]);
+#if 0
 	if(regs->rip == -1)	// Returned from signal handler
 	{
 		void *stack = (void*)regs->rsp;
@@ -170,7 +171,7 @@ void interrupt(regs_t *regs)
 				signal_send(current_process->pid, SIGILL);
 				break;
 		}
-	
+#endif	
 	debug("Kernel exception\n"); // That's bad
 	for(;;);
 }

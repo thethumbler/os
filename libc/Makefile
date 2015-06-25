@@ -12,4 +12,5 @@ libc.a: $(OBJ)
 	@mv $@ obj/
 
 clean:
-	${RM} -f $(OBJ)
+	${RM} -f obj/*.o
+	@rm -f libc.a

@@ -15,6 +15,7 @@
 #include <ata.h>
 #include <string.h>
 #include <signal.h>
+#include <pit.h>
 
 void map_mem(multiboot_info_t*);
 
@@ -65,13 +66,8 @@ void kmain(void)
 	extern uint64_t k_tss64_sp;
 	*(uint64_t*)( (uint64_t)&VMA + (uint64_t)&k_tss64_sp ) = 0xFFFFFFFFC0008000;
 
-	outb(0x43, 0x36);
-	uint32_t div = 1193180/50;	// 50 Hz
-	outb(0x40, div & 0xFF);
-	outb(0x40, (div >> 8) & 0xFF);
-	extern void timer();
-	extern void schedule();
-	irq_install_handler(0, schedule);	//XXX
+	pit_set_freq(2000);	// timer tick = 500 us
+	pit_install();
 	irq_install();
 	
 	extern void mouse_init();
@@ -102,7 +98,7 @@ void kmain(void)
 
 		
 	extern inode_t *ext2_load(void *_);
-	ext2_load(&atadev);
+	//ext2_load(&atadev);
 
 	process_t *init = load_elf("/init");
 	

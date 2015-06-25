@@ -12,5 +12,6 @@ uint64_t execv(uint8_t *path, uint8_t **arg);
 void *sbrk(uint64_t size);
 uint64_t getpid();
 uint64_t wait(uint64_t *status);
+uint64_t usleep(uint64_t usec);
 
 #endif

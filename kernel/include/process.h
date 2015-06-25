@@ -61,6 +61,10 @@ typedef struct process_struct
 	struct sigaction handlers[21];
 	signal_queue_t *sigqueue;
 	
+	uint32_t	ticks;
+	uint32_t	sub_ticks;
+	uint32_t	wait_us;
+	
 	// used for procsses queue
 	process_t 	*prev;
 	process_t 	*next;

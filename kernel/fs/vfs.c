@@ -101,9 +101,9 @@ void vfs_tree(inode_t *node)
 	}
 }
 
-void vfs_read(inode_t *inode, uint32_t offset, uint32_t len, void *buf)
+uint32_t vfs_read(inode_t *inode, uint32_t offset, uint32_t len, void *buf)
 {
-	inode->fs->read(inode, offset, len, buf);
+	return inode->fs->read(inode, offset, len, buf);
 }
 
 file_t *vfs_fopen(uint8_t *path, uint8_t *mode)

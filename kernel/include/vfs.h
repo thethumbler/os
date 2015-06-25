@@ -53,7 +53,7 @@ inode_t *vfs_trace_path(inode_t*, uint8_t*);
 inode_t *vfs_create(inode_t*, uint8_t*, inode_t*);
 void vfs_tree(inode_t*);
 
-void vfs_read (inode_t*, uint32_t, uint32_t, void*);
+uint32_t vfs_read (inode_t*, uint32_t, uint32_t, void*);
 void vfs_write(inode_t*, void*, uint64_t);
 
 file_t *vfs_fopen(uint8_t*, uint8_t*);

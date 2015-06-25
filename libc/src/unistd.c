@@ -45,3 +45,8 @@ uint64_t wait(uint64_t *status)
 {
 	return syscall(SYS_WAIT, (uint64_t)status, 0, 0);
 }
+
+uint64_t usleep(uint64_t usec)
+{
+	return syscall(SYS_USLEEP, (uint64_t)usec, 0, 0);
+}

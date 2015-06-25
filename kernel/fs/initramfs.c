@@ -76,7 +76,7 @@ static uint32_t rootfs_read(inode_t *inode, uint32_t offset, uint32_t len, void 
 	uint8_t *buf = (uint8_t*)buf_p;
 	if(offset > inode->size) return 0;
 	uint32_t size = MIN(len, inode->size - offset), _size = size;
-	uint8_t *_buf = inode->p;
+	uint8_t *_buf = (uint8_t*)inode->p + offset;
 	while(size--)
 		*buf++ = *_buf++;
 

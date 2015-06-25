@@ -9,7 +9,7 @@
 #include <string.h>
 
 extern process_t *current_process;
-
+/*
 typedef struct
 {
 	uint8_t  *buf;
@@ -20,6 +20,9 @@ typedef struct
 	uint32_t data_off;
 	uint32_t data_size;
 	uint64_t data_addr;
+	uint64_t bss_off;
+	uint32_t bss_size;
+	uint64_t bss_addr;
 } elf_t;
 
 elf_t *parse_elf(inode_t *file)
@@ -31,6 +34,16 @@ elf_t *parse_elf(inode_t *file)
 	elf_hdr_t *hdr = (elf_hdr_t*)buf;
 	elf_section_hdr_t *text = (elf_section_hdr_t*)(buf + hdr->shoff + hdr->shentsize);
 	elf_section_hdr_t *data = (elf_section_hdr_t*)(buf + hdr->shoff + 2 * hdr->shentsize);
+	
+	uint32_t c = 2;
+	elf_section_hdr_t *bss  = (elf_section_hdr_t*)(buf + hdr->shoff + 3 * hdr->shentsize);
+	while(c < hdr->shnum && bss->type != 8) //SHT_NOBITS
+	{
+		bss = (elf_section_hdr_t*)(buf + hdr->shoff + c++ * hdr->shentsize);
+	}
+	
+	if(bss->type != 8) bss = NULL;
+	
 	*ret = 
 		(elf_t)
 		{
@@ -41,11 +54,14 @@ elf_t *parse_elf(inode_t *file)
 			.text_addr = text->addr,
 			.data_off  = data->off,
 			.data_size = data->size,
-			.data_addr = data->addr,		
+			.data_addr = data->addr,
+			.bss_off   = bss ? bss->off  : 0,
+			.bss_size  = bss ? bss->size : 0,
+			.bss_addr  = bss ? bss->addr : data->addr + data->size,
 		};
 	return ret;
 }
-
+*/
 uint64_t switch_pdpt(uint64_t pdpt)
 {
 	uint64_t ret = *PML4;
@@ -87,7 +103,7 @@ void map_mem_user(uint64_t pdpt, uint64_t *ptr, uint32_t size)
 void unmap_mem_user(uint64_t pdpt, uint64_t *ptr, uint32_t size)
 {
 	uint64_t cur_pdpt = switch_pdpt(pdpt);
-	memset(ptr, 0, size);
+	//memset(ptr, 0, size);
 	
 	uint32_t pages = size/0x1000 + (size%0x1000?1:0);
 	uint32_t tbls = pages/0x200 + (pages%0x200?1:0);
@@ -109,7 +125,7 @@ void unmap_mem_user(uint64_t pdpt, uint64_t *ptr, uint32_t size)
 	while(pages--)
 		if((*++init_page&1))
 		{
-			debug(" #%lx -> #%lx\n", init_page, *init_page);
+			//debug(" #%lx -> #%lx\n", init_page, *init_page);
 			mman.set(*init_page);
 			*init_page = 0;
 		}
@@ -174,40 +190,63 @@ uint64_t get_pid()
 	return ++pid;
 }
 
+#define SHT_PROGBITS	0x1
+#define SHF_ALLOC		0x2
+
 process_t *load_elf(char *filename)
 {	
 	inode_t *file = vfs_trace_path(vfs_root, filename);
-	elf_t  *elf  = parse_elf(file);
+	if(!file) return NULL;
+	
+	uint8_t *buf = kmalloc(file->size);
+	file->fs->read(file, 0, file->size, buf);
+	
+	elf_hdr_t *hdr = (elf_hdr_t*)buf;
+	elf_section_hdr_t *ehdr = (elf_section_hdr_t*)(buf + hdr->shoff);
+	
+	uint32_t j, size = 0;
+	for(j = 0; j < hdr->shnum; ++j)
+	{
+		ehdr = (elf_section_hdr_t*)(buf + hdr->shoff + j * hdr->shentsize);
+		if(ehdr->flags & SHF_ALLOC) size = ehdr->addr + ehdr->size;
+	}
+
 
 	process_t *proc = kmalloc(sizeof(process_t));	
 	proc->pdpt = get_pdpt();
 	proc->name = strdup(filename);
 	proc->pid  = get_pid();
 	
-	uint32_t size = elf->text_size + elf->data_size;
+	
 	proc->size = size/0x1000 + (size%0x1000?1:0);
-	proc->heap = proc->size;
+	proc->heap = proc->size * 0x1000;
 	
 	proc->fds.len = 0;
 	proc->fds.max_len = 5;
 	proc->fds.ent = kmalloc(5 * sizeof(process_file_t));
 
-	map_mem_user(proc->pdpt, 0x0, size ); // Heap
+	map_mem_user(proc->pdpt, 0x0, proc->size * 0x1000); // Heap
 	map_mem_user(proc->pdpt, 
 		(uint64_t*)(USER_STACK - USER_STACK_SIZE), USER_STACK_SIZE); // Stack
 	
 	uint64_t cur_pdpt = switch_pdpt(proc->pdpt);
 
 	// let's load the file at 0x0
-	uint8_t *load = 0x0;
-	uint32_t i;
-	for(i = 0; i < size; ++i)
-		*(load+i) = elf->buf[elf->text_off + i];
 	
-	kfree(elf->buf);
-	kfree(elf);
+	ehdr = (elf_section_hdr_t*)(buf + hdr->shoff);
+	for(j = 0; j < hdr->shnum; ++j)
+	{
+		ehdr = (elf_section_hdr_t*)(buf + hdr->shoff + j * hdr->shentsize);
+		if(ehdr->type == SHT_PROGBITS && ehdr->flags & SHF_ALLOC)
+		{
+			//debug("memcpy(0x%lx, 0x%lx, 0x%x)\n", ehdr->addr, buf + ehdr->off, ehdr->size);
+			memcpy(ehdr->addr, buf + ehdr->off, ehdr->size);
+		}
+	}
 
-	proc->stat.rip = 0;
+	kfree(buf);
+
+	proc->stat.rip = hdr->entry;
 	proc->stat.rsp = USER_STACK;
 
 	switch_pdpt(cur_pdpt);
@@ -254,8 +293,6 @@ void fork_process(process_t *p)
 	new_process->name = strcat(p->name, " (fork)");
 	new_process->parent = p;
 	new_process->pdpt = get_pdpt();
-
-	debug("%lx\n", new_process->pdpt);
 	
 	new_process->size = p->size;
 	new_process->pid = get_pid();
@@ -264,7 +301,7 @@ void fork_process(process_t *p)
 	memcpy(new_process->fds.ent, p->fds.ent, p->fds.max_len * sizeof(process_file_t*));
 	new_process->status = READY;
 	
-	map_mem_user(new_process->pdpt, 0x0, p->size); // Heap
+	map_mem_user(new_process->pdpt, 0x0, p->size * 0x1000); // Heap
 	map_mem_user(new_process->pdpt, 
 		(uint64_t*)(USER_STACK - USER_STACK_SIZE), USER_STACK_SIZE); // Stack
 	
@@ -305,35 +342,50 @@ void exec_process(uint8_t *path)
 {
 	inode_t *file = vfs_trace_path(vfs_root, path);
 	if(!file) return;
-	elf_t   *elf  = parse_elf(file);
 
-	//process_t *proc = kmalloc(sizeof(process_t));	
-	//proc->pdpt = get_pdpt();
 	kfree(current_process->name);
 	current_process->name = strdup(path);
-	//proc->pid  = get_pid();
+
+	uint8_t *buf = kmalloc(file->size);
+	file->fs->read(file, 0, file->size, buf);
 	
-	uint32_t size = elf->text_size + elf->data_size;
+	elf_hdr_t *hdr = (elf_hdr_t*)buf;
+	elf_section_hdr_t *ehdr = (elf_section_hdr_t*)(buf + hdr->shoff);
+	
+	uint32_t j, size = 0;
+	for(j = 0; j < hdr->shnum; ++j)
+	{
+		ehdr = (elf_section_hdr_t*)(buf + hdr->shoff + j * hdr->shentsize);
+		if(ehdr->flags & SHF_ALLOC) size = ehdr->addr + ehdr->size;
+	}
+	
 	current_process->size = size/0x1000 + (size%0x1000?1:0);
-	current_process->heap = current_process->size;
+	current_process->heap = current_process->size * 0x1000;
 	
 	// TODO : unmap extra allocated virtual address space
-	map_mem_user(current_process->pdpt, 0x0, size );
+	map_mem_user(current_process->pdpt, 0x0, current_process->size * 0x1000 );
 	map_mem_user(current_process->pdpt, 
 		(uint64_t*)(USER_STACK - USER_STACK_SIZE), USER_STACK_SIZE); // Stack
 	
 	uint64_t cur_pdpt = switch_pdpt(current_process->pdpt);
 
 	// let's load the file at 0x0
-	uint8_t *load = 0x0;
-	uint32_t i;
-	for(i = 0; i < size; ++i)
-		*(load+i) = elf->buf[elf->text_off + i];
 	
-	kfree(elf->buf);
-	kfree(elf);
+	ehdr = (elf_section_hdr_t*)(buf + hdr->shoff);
+	for(j = 0; j < hdr->shnum; ++j)
+	{
+		ehdr = (elf_section_hdr_t*)(buf + hdr->shoff + j * hdr->shentsize);
+		if(ehdr->type == SHT_PROGBITS && ehdr->flags & SHF_ALLOC)
+		{
+			debug("memcpy(0x%lx, 0x%lx, 0x%x)\n", ehdr->addr, buf + ehdr->off, ehdr->size);
+			memcpy(ehdr->addr, buf + ehdr->off, ehdr->size);
+		}
+	}
 
-	current_process->stat.rip = 0;
+	kfree(buf);
+
+	debug("entry %lx\n", hdr->entry);
+	current_process->stat.rip = hdr->entry;
 	current_process->stat.rsp = USER_STACK;
 
 	switch_pdpt(cur_pdpt);
