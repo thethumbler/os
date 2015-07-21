@@ -23,13 +23,6 @@ load_tss:
 tss_ptr:
 	dw 0x28
 
-; We emulate iretq .... ugly !
-;%macro iretq 0
-;	mov rax, qword [rsp]
-;	add rsp, 40
-;	jmp rax
-;%endmacro
-
 %macro pusha 0
 	push rax
 	push rdx
@@ -204,16 +197,16 @@ switch_context:
 	mov rsp, rax
 	mov ax, 0x23
 	mov ds, ax
-	mov rax, [rdx + 4*0x8] ; rsp
+	mov rax, [rdx + 5*0x8] ; rsp
 	push qword 0x23
 	push rax
-	mov rax, [rdx + 3*0x8] ; rflags
+	mov rax, [rdx + 4*0x8] ; rflags
 	bts rax, 9
 	push rax
 	push qword 0x1B
 	mov rax, [rdx + 2*0x8] ; rip
 	push qword rax
-	mov rax, [rdx + 0x8]	; rax
+	mov rax, [rdx + 1*0x8]	; rax
 	mov rdx, [rdx]			; rdx
 	iretq
 

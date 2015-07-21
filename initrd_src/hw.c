@@ -1,10 +1,6 @@
-#include <system.h>
-#include <fcntl.h>
-#include <unistd.h>
+#include <stdio.h>
 
-void _start()
+int main()
 {
-	write(0, "Hello, World!\n", 14);
-	_exit(0);
-	for(;;);
+	printf("\033[0;33mHello, World!\n\033[0m");
 }

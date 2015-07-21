@@ -1,7 +1,7 @@
 
 include ../Makefile.cfg
 
-OBJ = vfs.o initramfs.o ext2.o
+OBJ = vfs.o initramfs.o devfs.o ext2.o
 OUT=../obj
 
 CFLAGS = -c -I ../include/ -mcmodel=large -nostdlib -ffreestanding

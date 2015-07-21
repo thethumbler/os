@@ -44,4 +44,4 @@ clean:
 	${RM} -f $(OBJ)
 
 try: cd.iso
-	qemu-system-x86_64 -cdrom cd.iso -m 1G -serial stdio -hda hd.img -enable-kvm
+	qemu-system-x86_64 -cdrom cd.iso -m 1G -serial stdio -hda hd.img -enable-kvm -boot d

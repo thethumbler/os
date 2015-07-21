@@ -60,10 +60,26 @@ char *signal_names[] =
 void signal_send(process_t *p, signal_num_t signal)
 {	
 	inode_t *p_stdout = p->fds.len > 2 ? p->fds.ent[1].inode : NULL;
+	
 	uint8_t *msg;
 	
 	if(p->handlers[signal].sa_handler)
 	{
+		if((uint64_t)p->handlers[signal].sa_handler == 1)	// Ignore
+		{
+			debug("Ignoring signal\n");
+			return;
+		}
+		else if((uint64_t)p->handlers[signal].sa_handler == -1)	// Error ( terminate )
+		{
+			if(p_stdout) 
+			{
+				msg = strcat(strcat("Process terminated [", signal_names[signal - 1]), "]\n");
+				vfs_write(p_stdout, 0, strlen(msg), msg);
+			}
+			exit_process(p);
+			return;
+		}
 		debug("Queuing signal\n");
 		if(!p->sigqueue) 
 		{
@@ -91,7 +107,7 @@ void signal_send(process_t *p, signal_num_t signal)
 				if(p_stdout) 
 				{
 					msg = strcat(strcat("Process terminated [", signal_names[signal - 1]), "]\n");
-					vfs_write(p_stdout, msg, strlen(msg));
+					vfs_write(p_stdout, 0, strlen(msg), msg);
 				}
 				exit_process(p);
 				break;

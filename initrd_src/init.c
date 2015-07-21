@@ -1,15 +1,14 @@
-#include <system.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
 
-void _start()
-{	
+void main()
+{
 	if(!fork())
 	{
-		execv("/shell", 0);
-		open("/dev/tty0", 0);
-		write(0, "/shell not found\n", 18);
+		execve("/bin/login", NULL, NULL);
+		open("/dev/tty/0", 0);
+		write(0, "login not found\n", 18);
 		_exit(0);
 	}
 	//uint64_t status;

@@ -25,10 +25,10 @@
    our OS.
 */
 
-#include <system.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #define OP_END          0
 #define OP_INC_DP       1
@@ -62,9 +62,14 @@ static unsigned short STACK[STACK_SIZE];
 static unsigned int SP = 0;
 static char *str = 0;
 static char *_str;
-void _start()
+
+int main(int argc, char **argv)
 {
-	int fd = open("/hw.bf", 0);
+	if(argc != 2)
+	{
+		printf("usage: %s filename\n", argv[0]);
+	}
+	int fd = open(argv[1], 0);
 	str = malloc(1000);
 	_str = str;
 	int size = read(fd, str, 1000);

@@ -8,14 +8,13 @@ inode_t *vfs_root;
 
 void vfs_mount_root(inode_t *node)
 {
-	vfs_root = node;
-	vfs_root->parent = NULL;
-	vfs_root->p = node->p;
+	vfs_root = kmalloc(sizeof(inode_t));
+	vfs_mount(vfs_root, "/", node);
 }
 
 inode_t *vfs_trace_path(inode_t *inode, uint8_t *_path)
 {
-	if(!_path || !*_path) return inode;
+	if(!_path || (_path && !*_path)) return inode;
 	uint8_t *path = strdup(_path);
 	uint32_t len = strlen(path);
 	uint8_t *end_path = path + len;
@@ -31,6 +30,9 @@ inode_t *vfs_trace_path(inode_t *inode, uint8_t *_path)
 	
 	while(tmp)
 	{
+		if(tmp->type == FS_MOUNTPOINT)
+			tmp = ((vfs_mountpoint_t*)tmp->p)->inode;
+		
 		if(!tmp->list) return NULL;
 		if(!tmp->list->count) return NULL;
 		uint32_t k = 0;
@@ -42,7 +44,7 @@ inode_t *vfs_trace_path(inode_t *inode, uint8_t *_path)
 			_tmp = _tmp->next;
 			++k;
 		}
-		if( !_tmp || strcmp(path, _tmp->name) ) return NULL;
+		if( !_tmp || !_tmp->name || strcmp(path, _tmp->name) ) return NULL;
 		tmp = _tmp;
 		while(path < end_path && *path++);
 		if(path >= end_path) return tmp;
@@ -70,14 +72,40 @@ inode_t *vfs_create(inode_t *root, uint8_t *path, inode_t *new_node)
 	return new_node;
 }
 
+inode_t *vfs_mount(inode_t *root, uint8_t *path, inode_t *new_node)
+{
+	inode_t *dir = vfs_trace_path(root, path);
+	if(!dir) return NULL;
+	
+	inode_t *tmp = kmalloc(sizeof(inode_t));
+	memcpy(tmp, dir, sizeof(inode_t));
+	
+	dir->type = FS_MOUNTPOINT;
+
+	vfs_mountpoint_t *mount = kmalloc(sizeof(vfs_mountpoint_t));
+	mount->inode = new_node;
+	mount->old_inode = tmp;
+	
+	dir->p    = mount;
+	//dir->fs   = &vfs;
+	
+	return dir;
+}
+
 void vfs_tree(inode_t *node)
 {
 	static uint32_t level = 0;
 	if(!node) return;
 	if(node->name) debug("%s", node->name);
-	if(node->type == FS_DIR) 
+	if(node->type == FS_DIR || node->type == FS_MOUNTPOINT) 
 	{
 		debug("/");
+		if(node->type == FS_MOUNTPOINT)
+		{
+			vfs_mountpoint_t *m = node->p;
+			vfs_tree(m->inode);
+			return;
+		}
 		if(node->list)
 		{
 			debug("\n");
@@ -101,19 +129,12 @@ void vfs_tree(inode_t *node)
 	}
 }
 
-uint32_t vfs_read(inode_t *inode, uint32_t offset, uint32_t len, void *buf)
+uint32_t vfs_read(inode_t *inode, uint64_t offset, uint64_t len, void *buf)
 {
 	return inode->fs->read(inode, offset, len, buf);
 }
 
-file_t *vfs_fopen(uint8_t *path, uint8_t *mode)
+uint32_t vfs_write(inode_t *inode, uint64_t offset, uint64_t len, void *buf)
 {
-	inode_t *inode = vfs_trace_path(vfs_root, path);
-	if(!inode) return NULL;
-	return inode->fs->open(inode);
-}
-
-void vfs_write(inode_t *inode, void *buf, uint64_t len)
-{
-	inode->fs->write(inode, buf, len);
+	return inode->fs->write(inode, offset, len, buf);
 }

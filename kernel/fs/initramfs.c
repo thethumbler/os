@@ -4,23 +4,9 @@
 #include <initramfs.h>
 #include <string.h>
 
-static file_t *rootfs_open(inode_t *inode)
+static inode_t *cpiofs_load(inode_t *inode)
 {
-	if(inode->type != FS_FILE) return NULL;
-	file_t *ret = kmalloc(sizeof(file_t));
-	*ret = 
-		(file_t)
-		{
-			.pos = 0,
-			.size = inode->size,
-			.buf = inode->p
-		};
-	return ret;
-}
-
-static inode_t *rootfs_load(void *ptr)
-{
-	inode_t *rootfs = kmalloc(sizeof(*rootfs));
+	inode_t *rootfs = kmalloc(sizeof(inode_t));
 	
 	rootfs->name = NULL;
 	rootfs->type = FS_DIR;
@@ -33,7 +19,7 @@ static inode_t *rootfs_load(void *ptr)
 	
 	dentry_t *tmp;
 	
-	cpio_hdr_t *cpio = (cpio_hdr_t*)ptr;
+	cpio_hdr_t *cpio = ((ramdev_private_t*)inode->p)->ptr;
 	
 	while(*(uint8_t*)cpio)
 	{
@@ -50,7 +36,6 @@ static inode_t *rootfs_load(void *ptr)
 
 		void *data = name + cpio->namesize + cpio->namesize%2;
 		inode_t *new_node = kmalloc(sizeof(inode_t));
-		
 		*new_node = 
 			(inode_t)
 			{
@@ -58,10 +43,11 @@ static inode_t *rootfs_load(void *ptr)
 				.size = size,
 				.type = type,
 				.fs = &initramfs,
-				.p = 0xFFFFFFFFC0000000 + data,
+				.p = data,
 			};
 			
 		vfs_create(rootfs, *path ? path : (uint8_t*)"/", new_node);
+		kfree(path);
 		
 		next:
 		cpio = (typeof(cpio))
@@ -71,7 +57,7 @@ static inode_t *rootfs_load(void *ptr)
 	return rootfs;
 }
 
-static uint32_t rootfs_read(inode_t *inode, uint32_t offset, uint32_t len, void *buf_p)
+static uint32_t cpiofs_read(inode_t *inode, uint32_t offset, uint32_t len, void *buf_p)
 {
 	uint8_t *buf = (uint8_t*)buf_p;
 	if(offset > inode->size) return 0;
@@ -87,7 +73,7 @@ fs_t initramfs =
 	(fs_t)
 	{
 		.name = "initramfs",
-		.load = rootfs_load,
-		.open = rootfs_open,
-		.read = rootfs_read,
+		.load = cpiofs_load,
+		.read = cpiofs_read,
+		.write = NULL,
 	};

@@ -2,22 +2,24 @@
 #define _VFS_H
 
 #include <system.h>
-#include <device.h>
 
 typedef struct filesystem_struct fs_t;
-typedef enum { FS_DIR, FS_FILE, FS_CHR } inode_type; 
+typedef enum { FS_FILE, FS_DIR, FS_CHRDEV, FS_BLKDEV, FS_SYMLINK, FS_PIPE, FS_MOUNTPOINT } inode_type; 
 typedef struct inode_struct inode_t;
 typedef struct dentry_struct dentry_t;
-typedef struct file_struct file_t;
 
 typedef struct filesystem_struct
 {
-	uint8_t *name;
-	inode_t* (*load)(void*);
-	file_t* (*open)(inode_t*);
-	uint32_t (*read)(inode_t*, uint32_t, uint32_t, void*);
-	uint32_t (*write)(inode_t*, void*, uint32_t);
+	uint8_t		*name;
+	inode_t*	(*load)(inode_t*);
+	uint32_t	(*link)(inode_t*, uint8_t*);
+	uint32_t	(*unlink)(inode_t*, uint8_t*);
+	uint32_t	(*read)(inode_t*, uint32_t, uint32_t, void*);
+	uint32_t	(*write)(inode_t*, uint32_t, uint32_t, void*);
+	uint32_t	(*ioctl)(inode_t*, uint32_t, ...);
 }fs_t;
+
+#include <device.h>
 
 struct inode_struct
 {
@@ -39,23 +41,26 @@ struct dentry_struct
 	inode_t *head;
 };
 
-struct file_struct
+typedef struct vfs_mountpoint_struct
 {
-	uint32_t pos;
-	uint32_t size;
-	uint8_t *buf;
-	uint32_t type;
-	void *p;
-};
+	inode_t *inode;
+	inode_t *old_inode;
+}vfs_mountpoint_t;
+
+typedef struct dirent {
+	uint32_t d_ino;
+	char d_name[256];
+} dirent;
+
+extern fs_t vfs;
 
 extern inode_t *vfs_root;
 inode_t *vfs_trace_path(inode_t*, uint8_t*);
 inode_t *vfs_create(inode_t*, uint8_t*, inode_t*);
+inode_t *vfs_mount(inode_t*, uint8_t*, inode_t*);
 void vfs_tree(inode_t*);
 
-uint32_t vfs_read (inode_t*, uint32_t, uint32_t, void*);
-void vfs_write(inode_t*, void*, uint64_t);
-
-file_t *vfs_fopen(uint8_t*, uint8_t*);
+uint32_t vfs_read (inode_t*, uint64_t, uint64_t, void*);
+uint32_t vfs_write(inode_t*, uint64_t, uint64_t, void*);
 
 #endif

@@ -2,6 +2,9 @@
 #define _FPU_H
 
 #include <system.h>
+
+extern uint8_t fpu_state;
+
 void save_fpu();
 void restore_fpu();
 void trap_fpu();

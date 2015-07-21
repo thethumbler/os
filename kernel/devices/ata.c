@@ -43,7 +43,7 @@ void ata_read_sectors(uint32_t LBA, uint8_t sectors, void *buf)
 	asm("popfq");	// Restoring rflags register
 }
 
-uint32_t ata_read(dev_t *currently_unused, uint32_t addr, uint32_t size, void *buf)
+uint32_t ata_read(inode_t *currently_unused, uint32_t addr, uint32_t size, void *buf)
 {
 	/* TODO : Try to optimize this by doing some math 
 			  instead of being dumb and copying the contents */
@@ -55,6 +55,7 @@ uint32_t ata_read(dev_t *currently_unused, uint32_t addr, uint32_t size, void *b
 	ata_read_sectors(LBA, sectors, _buf);
 	memcpy(buf, _buf + offset, size);
 	kfree(_buf);
+	return size;
 }
 
 // TODO : this ata_write won't work because it's too fast

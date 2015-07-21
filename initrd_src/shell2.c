@@ -1,14 +1,17 @@
-#include <system.h>
 #include <stdint.h>
 #include <fcntl.h>
 #include <unistd.h>
 
-void _start()
+void main()
 {
 	if(fork()) _exit(0);
 	
 	close(0);
-	int k = open("/dev/tty1", 0);
+	close(1);
+	close(2);
+	open("/dev/tty1", 0);
+	open("/dev/tty1", 0);
+	open("/dev/tty1", 0);
 	
 	char buf[100];
 	while(1)
@@ -27,7 +30,7 @@ void _start()
 						buf[i] = '\0';
 						break;
 					}
-				execv(buf, 0);
+				execve(buf, 0, 0);
 				for(;;);	// We should never reach this anyway
 			}
 			uint64_t stat;

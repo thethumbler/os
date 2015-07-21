@@ -26,9 +26,9 @@ uint64_t fork(void)
 	return syscall(SYS_FORK, 0, 0, 0);
 }
 
-uint64_t execv(uint8_t *path, uint8_t **arg)
+uint64_t execve(uint8_t *path, uint8_t **arg, uint8_t **env)
 {
-	return syscall(SYS_EXECV, (uint64_t)path, 0, 0);
+	return syscall(SYS_EXECVE, (uint64_t)path, (uint64_t)arg, (uint64_t)env);
 }
 
 void *sbrk(uint64_t size)

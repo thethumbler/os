@@ -28,7 +28,7 @@ void pit_irq_handler()
 		sub_ticks = 0;
 	}
 	
-	if(!(sub_ticks * sub_tick_us % (1000 * 20))) schedule();
+	if(!(sub_ticks * sub_tick_us % (1000 * 18))) schedule();
 }
 
 void pit_install()

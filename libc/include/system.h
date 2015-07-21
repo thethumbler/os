@@ -10,7 +10,7 @@
 #define SYS_WRITE	3
 #define SYS_CLOSE	4
 #define SYS_FORK	5
-#define SYS_EXECV	6
+#define SYS_EXECVE	6
 #define SYS_SBRK	7
 #define SYS_GETPID	8
 #define SYS_WAIT	9

@@ -4,7 +4,9 @@ include Makefile.cfg
 OBJ = boot.o kernel.o
 ALL_OBJ = boot.o kernel.o io.o serial.o debug.o string.o kmem.o gdt.o idt.o \
 		  cpu.o isr.o irq.o vfs.o initramfs.o process.o syscall.o scheduler.o \
-		  tty.o kbd.o ata.o ext2.o mouse.o signal.o fpu.o pit.o
+		  signal.o fpu.o pit.o ramdev.o ttydev.o ext2.o\
+		  devfs.o console.o kbd.o ata.o
+
 OUT = obj
 
 ASFLAGS = -f elf64

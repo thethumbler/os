@@ -57,6 +57,8 @@ void schedule(regs_t *regs)
 	dump_processes();
 	if(!kidle)
 	{
+		memcpy(&current_process->stat, regs, sizeof(regs_t));
+		/*
 		current_process->stat.rax = regs->rax;
 		current_process->stat.rdx = regs->rdx;
 		current_process->stat.rcx = regs->rcx;
@@ -75,6 +77,7 @@ void schedule(regs_t *regs)
 		current_process->stat.r15 = regs->r15;
 		current_process->stat.rip = regs->rip;
 		current_process->stat.rflags = regs->rflags;
+		*/
 	} else kidle = 0;
 	
 	process_t *p = current_process?current_process->next:NULL;

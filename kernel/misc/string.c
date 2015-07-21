@@ -74,3 +74,21 @@ uint8_t *strndup(uint8_t *src, uint32_t len)
 	ret[i] = '\0';
 	return ret;
 }
+
+uint32_t isdigit(uint8_t chr)
+{
+	return chr >= '0' && chr <= '9';
+}
+
+uint32_t isalpha(uint8_t chr)
+{
+	return (chr >= 'a' && chr <= 'z') || (chr >= 'A' && chr <= 'Z');
+}
+
+uint32_t within(uint8_t chr, uint8_t *str)
+{
+	while(*str)
+		if(chr == *str++)
+			return 1;
+	return 0;
+}

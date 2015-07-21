@@ -13,27 +13,27 @@ typedef struct
 }ext2_private_t;
 
 
-ext2_inode_t *ext2_get_inode(dev_t *dev, ext2_superblock_t *sb, uint32_t inode)
+ext2_inode_t *ext2_get_inode(inode_t *dev_inode, ext2_superblock_t *sb, uint32_t inode)
 {
 	uint32_t bs = 1024 << sb->block_size;
 	uint32_t block_group = (inode - 1) / sb->inodes_per_block_group;
 	block_group_descriptor_t *bgd = kmalloc(sizeof(*bgd));
-	dev->read(dev, 2 * bs + block_group, sizeof(*bgd), bgd);
+	dev_inode->fs->read(dev_inode, 2 * bs + block_group, sizeof(*bgd), bgd);
 	uint32_t index = (inode - 1) % sb->inodes_per_block_group;
 	ext2_inode_t *i = kmalloc(sizeof(*i));
-	dev->read(dev, bgd->inode_table * bs + index * sb->inode_size, sizeof(*i), i);
+	dev_inode->fs->read(dev_inode, bgd->inode_table * bs + index * sb->inode_size, sizeof(*i), i);
 	return i;
 }
 
-uint32_t *get_block(dev_t *dev, ext2_superblock_t *sb, uint32_t number, void *buf)
+uint32_t *get_block(inode_t *dev_inode, ext2_superblock_t *sb, uint32_t number, void *buf)
 {
 	uint32_t bs = 1024 << sb->block_size;
 	//uint32_t *ret = kmalloc(bs);
-	dev->read(dev, number * bs, bs, buf);
+	dev_inode->fs->read(dev_inode, number * bs, bs, buf);
 	return buf;
 }
 
-uint32_t *get_block_ptrs(dev_t *dev, ext2_superblock_t *sb, ext2_inode_t *inode)
+uint32_t *get_block_ptrs(inode_t *dev_inode, ext2_superblock_t *sb, ext2_inode_t *inode)
 {
 	uint32_t bs = 1024 << sb->block_size;
 	
@@ -53,7 +53,7 @@ uint32_t *get_block_ptrs(dev_t *dev, ext2_superblock_t *sb, ext2_inode_t *inode)
 	isize -= 12;
 	
 
-	uint32_t *tmp = get_block(dev, sb, inode->singly_indirect_pointer, kmalloc(bs));
+	uint32_t *tmp = get_block(dev_inode, sb, inode->singly_indirect_pointer, kmalloc(bs));
 	
 	for(k = 0; k < (bs/4) && k <= isize; ++k)
 		blks[13 + k] = tmp[k];
@@ -65,13 +65,13 @@ uint32_t *get_block_ptrs(dev_t *dev, ext2_superblock_t *sb, ext2_inode_t *inode)
 	
 	isize -= (bs/4);
 	
-	tmp = get_block(dev, sb, inode->doubly_indirect_pointer, kmalloc(bs));
+	tmp = get_block(dev_inode, sb, inode->doubly_indirect_pointer, kmalloc(bs));
 	uint32_t *tmp2 = kmalloc(bs);
 	
 	uint32_t j;
 	for(k = 0; k < (bs/4) && (k * (bs/4)) <= isize; ++k)
 	{
-		tmp2 = get_block(dev, sb, tmp[k], tmp2);
+		tmp2 = get_block(dev_inode, sb, tmp[k], tmp2);
 		for(j = 0; j < (bs/4) && (k * (bs/4) + j) <= isize; ++j)
 		{
 			blks[13 + bs/4 + k * bs/4 + j] = tmp2[j];
@@ -88,23 +88,22 @@ uint32_t *get_block_ptrs(dev_t *dev, ext2_superblock_t *sb, ext2_inode_t *inode)
 	for(;;);
 }
 
-inode_t *ext2_load(void *dev_p)
+inode_t *ext2_load(inode_t *dev_inode)
 {
-	dev_t *dev = (dev_t*)dev_p;
 	ext2_superblock_t *sb = kmalloc(sizeof(*sb));
-	dev->read(dev, 1024, sizeof(*sb), sb);
+	dev_inode->fs->read(dev_inode, 1024, sizeof(*sb), sb);
 	//uint32_t *b = get_block(dev, sb, 2);
 	
 	uint32_t bs = 1024 << sb->block_size;
 	uint32_t is = sb->inode_size;
 	
 	block_group_descriptor_t *bgd = kmalloc(sizeof(*bgd));
-	dev->read(dev,  2 * bs, sizeof(*bgd), bgd);
+	dev_inode->fs->read(dev_inode,  2 * bs, sizeof(*bgd), bgd);
 	
 	ext2_inode_t *root_inode = kmalloc(is);
-	dev->read(dev, bs * bgd->inode_table + is, is, root_inode);
+	dev_inode->fs->read(dev_inode, bs * bgd->inode_table + is, is, root_inode);
 	
-	uint32_t *ptrs = get_block_ptrs(dev, sb, root_inode);
+	uint32_t *ptrs = get_block_ptrs(dev_inode, sb, root_inode);
 	uint32_t count = *ptrs++;
 	
 	uint32_t k;
@@ -121,7 +120,7 @@ inode_t *ext2_load(void *dev_p)
 	
 	for(k = 0; k < count; ++k)
 	{
-		d = (ext2_dentry_t*)(get_block(dev, sb, *(ptrs + k), _d));
+		d = (ext2_dentry_t*)(get_block(dev_inode, sb, *(ptrs + k), _d));
 		if(d)
 		{
 			uint32_t size = 0;
@@ -142,11 +141,11 @@ inode_t *ext2_load(void *dev_p)
 				
 				_tmp->next = NULL;
 				_tmp->name = strndup(d->name, d->name_length);
-				ext2_inode_t *_inode = ext2_get_inode(dev, sb, d->inode);
+				ext2_inode_t *_inode = ext2_get_inode(dev_inode, sb, d->inode);
 				_tmp->size = _inode->size;
 				kfree(_inode);
 				_tmp->type = FS_FILE;
-				_tmp->dev  = dev;
+				_tmp->dev  = dev_inode->dev;
 				_tmp->fs   = &ext2;
 				_tmp->p = kmalloc(sizeof(ext2_private_t));
 				*(ext2_private_t*)_tmp->p = (ext2_private_t)
@@ -164,9 +163,7 @@ inode_t *ext2_load(void *dev_p)
 	}
 	kfree(_d);
 
-
-	// Mounting it
-	vfs_create(vfs_root, "/", ext2_vfs);
+	return ext2_vfs;
 }
 
 uint32_t ext2_read(inode_t *inode, uint32_t offset, uint32_t size, void *buf)
@@ -177,9 +174,9 @@ uint32_t ext2_read(inode_t *inode, uint32_t offset, uint32_t size, void *buf)
 	ext2_private_t *p = inode->p;
 	
 	uint32_t bs = 1024 << p->sb->block_size;
-	ext2_inode_t *i = ext2_get_inode(inode->dev, p->sb, p->inode);
+	ext2_inode_t *i = ext2_get_inode(inode, p->sb, p->inode);
 					
-	uint32_t *ptrs = get_block_ptrs(inode->dev, p->sb, i);
+	uint32_t *ptrs = get_block_ptrs(inode, p->sb, i);
 	uint32_t count = *ptrs++;
 
 	uint32_t skip_blocks = offset/bs; // Blocks to be skipped
@@ -192,7 +189,7 @@ uint32_t ext2_read(inode_t *inode, uint32_t offset, uint32_t size, void *buf)
 	
 	// Now let's read the first part ( size <= bs )
 	uint32_t first_part_size = (count > 1)?MIN(bs - skip_bytes, size):MIN(size, inode->size);
-	inode->dev->read(inode->dev, (*ptrs++) * bs + skip_bytes, first_part_size, buf);
+	inode->dev->read(inode, (*ptrs++) * bs + skip_bytes, first_part_size, buf);
 	buf += first_part_size;
 	size -= first_part_size;
 	--count;
@@ -200,7 +197,7 @@ uint32_t ext2_read(inode_t *inode, uint32_t offset, uint32_t size, void *buf)
 	// Now let's read the second part ( size is a multible of bs )
 	while(count > 1 && size > bs)
 	{
-		inode->dev->read(inode->dev, *ptrs++ * bs, bs, buf);
+		inode->dev->read(inode, *ptrs++ * bs, bs, buf);
 		buf += bs;
 		size -= bs;
 		--count;
@@ -210,7 +207,7 @@ uint32_t ext2_read(inode_t *inode, uint32_t offset, uint32_t size, void *buf)
 	if(count)
 	{
 		uint32_t last_part_size = MIN(size, inode->size - ( _size - size ));
-		inode->dev->read(inode->dev, (*ptrs++) * bs, last_part_size, buf);
+		inode->dev->read(inode, (*ptrs++) * bs, last_part_size, buf);
 		buf += last_part_size;
 		size -= last_part_size;
 		--count;
@@ -228,7 +225,7 @@ file_t *ext2_open(inode_t *inode)
 	ret->size = inode->size;
 	ret->buf = kmalloc(30);
 	debug("size %d\n", inode->size);
-	inode->fs->read(inode, 0ret->buf, 20);
+	inode->fs->fs->read(inode, 0ret->buf, 20);
 	return ret;
 }
 */
@@ -237,7 +234,7 @@ fs_t ext2 =
 	{
 		.name = "ext2",
 		.load = ext2_load,
-		.open = NULL,
+		//.open = NULL,
 		.read = ext2_read,
 		.write = NULL,
 	};
