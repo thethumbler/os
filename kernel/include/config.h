@@ -2,6 +2,7 @@
 #define _CONFIG_H
 
 #define _DEBUG_		1
+#define _DBG_CON_	0	// Debug to Console
 #define _GFX_		0
 #define _LAZYALLOC_	1
 

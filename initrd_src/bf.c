@@ -63,35 +63,7 @@ static unsigned int SP = 0;
 static char *str = 0;
 static char *_str;
 
-int main(int argc, char **argv)
-{
-	if(argc != 2)
-	{
-		printf("usage: %s filename\n", argv[0]);
-	}
-	int fd = open(argv[1], 0);
-	str = malloc(1000);
-	_str = str;
-	int size = read(fd, str, 1000);
-	
-	int status = compile_bf(fd);
-    
-    close(fd);
-    
-	if(status == SUCCESS) 
-    {
-		exec_bf();
-    }
-    else
-    {
-    	write(1, "Error!\n", 7);
-    }
-    
-    _exit(0);
-    for(;;);
-}
-
-void exec_bf() 
+int exec_bf() 
 {
 	str = _str;
 	*str = '\0';
@@ -162,4 +134,32 @@ int compile_bf(int fd) {
     }
     PROGRAM[pc].operator = OP_END;
     return SUCCESS;
+}
+
+int main(int argc, char **argv)
+{
+	if(argc != 2)
+	{
+		printf("usage: %s filename\n", argv[0]);
+	}
+	int fd = open(argv[1], 0);
+	str = malloc(1000);
+	_str = str;
+	int size = read(fd, str, 1000);
+	
+	int status = compile_bf(fd);
+    
+    close(fd);
+    
+	if(status == SUCCESS) 
+    {
+		exec_bf();
+    }
+    else
+    {
+    	write(1, "Error!\n", 7);
+    }
+    
+    _exit(0);
+    for(;;);
 }

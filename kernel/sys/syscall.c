@@ -270,7 +270,7 @@ SYS(sys_readdir)	// rbx fd, rcx index, rdx dirent
 	if(!dentry) { current_process->stat.rax = -1; kernel_idle(); }
 	
 	uint32_t index = rcx;
-	if(index > dentry->count) { current_process->stat.rax = -1; kernel_idle(); }
+	if(index >= dentry->count) { current_process->stat.rax = -1; kernel_idle(); }
 
 	inode_t *i = dentry->head;
 	while(i && i->next && index--) i = i->next;
@@ -300,10 +300,7 @@ SYS(sys_getcwd)	// rbx buf, rcx size
 SYS(sys_chdir)	//rbx path
 {
 	if(!validate(current_process, (void*)rbx) || !vfs_trace_path(vfs_root, (uint8_t*)rbx))
-	{
-		current_process->stat.rax = -1;
-		kernel_idle();
-	}
+		RETURN(-1);
 	
 	if(current_process->cwd) kfree(current_process->cwd);
 	if(((uint8_t*)rbx)[strlen((uint8_t*)rbx)-1] == '/')
@@ -319,6 +316,24 @@ SYS(sys_chdir)	//rbx path
 		current_process->cwd[len + 1] = '\0';
 	}
 	RETURN(0);
+}
+
+SYS(sys_mount)	// rbx filesystem, rcx dst, rdx src
+{
+	if(	!validate(current_process, (void*)rbx) 	||
+		!validate(current_process, (void*)rcx) 	||
+		!vfs_trace_path(vfs_root, (uint8_t*)rcx)||
+		!(rdx ? validate(current_process, (void*)rdx) : 1)
+		) RETURN(-1);
+
+	fs_t *fs = fsman.getfs((uint8_t*)rbx);
+	if(!fs) RETURN(-2);
+
+	inode_t *src = rdx ? vfs_trace_path(vfs_root, (uint8_t*)rdx) : NULL;
+	inode_t *dst = vfs_trace_path(vfs_root, (uint8_t*)rcx);
+	if(!dst) RETURN(-3);
+
+	RETURN(fs->mount(dst, src));
 }
 
 void *sys_calls[] = 
@@ -341,5 +356,6 @@ void *sys_calls[] =
 	sys_readdir,
 	sys_getcwd,
 	sys_chdir,
+	sys_mount,
 };
 

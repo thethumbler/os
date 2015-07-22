@@ -30,7 +30,7 @@ struct tty_device_struct
 	// TODO : add process group id member so every tty can be assigned to one group
 	process_t		*p;		// Process currently reading from TTY
 	uint8_t			*buf;	// The buffer of the currently reading process
-	uint32_t		len;	// Currently reading process buffer length
+	uint64_t		len;	// Currently reading process buffer length
 };
 
 void ttym_invoke(tty_device_t *tty, uint32_t req, ...);

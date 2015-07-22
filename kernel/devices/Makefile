@@ -1,7 +1,7 @@
 
 include ../Makefile.cfg
 
-OBJ = fpu.o pit.o ramdev.o ttydev.o console.o kbd.o ata.o
+OBJ = fpu.o pit.o ramdev.o ttydev.o console.o kbd.o ata.o devman.o
 OUT=../obj
 
 CFLAGS = -c -I ../include/ -mcmodel=large -nostdlib -ffreestanding

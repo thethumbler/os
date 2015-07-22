@@ -45,7 +45,7 @@ int main(int argc, char **argv)
 	
 	while(*buf)
 	{
-		while(*buf && !within(*buf, " \n\t;\"")) ++buf;
+		while(*buf && !within(*buf, " \n\t;\"")) ++buf;	// Breaks
 		
 		br = *buf;
 		

@@ -46,7 +46,7 @@ typedef struct {
 #pragma pack()
 
 void print_partition_geom(partition_t part){
-    /*
+    
     uint16_t s;
     uint16_t c;
     fprintf(stdout, " - start chs:\n");
@@ -74,7 +74,7 @@ void print_partition_geom(partition_t part){
     }else{
         fprintf(stdout, "\n");
     }
-    */
+    
 
     fprintf(stdout, " - starting lba: %u\n", part.starting_lba);
     fprintf(stdout, " - ending lba: %u\n", part.starting_lba + part.number_of_sectors - 1);

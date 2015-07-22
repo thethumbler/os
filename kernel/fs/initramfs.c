@@ -21,6 +21,7 @@ static inode_t *cpiofs_load(inode_t *inode)
 	
 	cpio_hdr_t *cpio = ((ramdev_private_t*)inode->p)->ptr;
 	
+	debug("Loading ramdisk ");
 	while(*(uint8_t*)cpio)
 	{
 		uint32_t size = cpio->filesize[0] * 0x10000 + cpio->filesize[1];
@@ -52,12 +53,14 @@ static inode_t *cpiofs_load(inode_t *inode)
 		next:
 		cpio = (typeof(cpio))
 			(name + cpio->namesize + (cpio->namesize%2) + size + (size%2));
+		debug(".");
 	}
+	debug(" [done]\n");
 
 	return rootfs;
 }
 
-static uint32_t cpiofs_read(inode_t *inode, uint32_t offset, uint32_t len, void *buf_p)
+static uint64_t cpiofs_read(inode_t *inode, uint64_t offset, uint64_t len, void *buf_p)
 {
 	uint8_t *buf = (uint8_t*)buf_p;
 	if(offset > inode->size) return 0;

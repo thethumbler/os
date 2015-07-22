@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 void dum();
 int main(int argc, char **argv)
@@ -36,7 +38,7 @@ int main(int argc, char **argv)
 		void *ptr = malloc(size);
 		//if(count || i) fprintf(stderr, "[%04d]: ", i++);
 		//fprintf(stderr, "malloc(%d) = 0x%016lX ", size, ptr);
-		int msize = (int)dum - (int)main;
+		int msize = (int)((void*)dum - (void*)main);
 		memcpy(ptr, main, msize);
 		if(memcmp(ptr, main, msize)) ++failed;
 		/*

@@ -2,7 +2,8 @@
 #include <device.h>
 #include <vfs.h>
 
-static uint32_t ramdev_read(inode_t *inode, uint32_t offset, uint32_t size, void *_buf)
+static uint32_t
+ramdev_read(inode_t *inode, uint64_t offset, uint64_t size, void *_buf)
 {
 	ramdev_private_t *p = inode->p;
 	if(offset <= p->size)
@@ -14,7 +15,8 @@ static uint32_t ramdev_read(inode_t *inode, uint32_t offset, uint32_t size, void
 	return -1;
 }
 
-static uint32_t ramdev_write(inode_t *inode, uint32_t offset, uint32_t size, void *_buf)
+static uint32_t
+ramdev_write(inode_t *inode, uint64_t offset, uint64_t size, void *_buf)
 {
 	ramdev_private_t *p = inode->p;
 	if(offset <= p->size)

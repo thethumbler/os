@@ -2,6 +2,7 @@
 #define _EXT2_H
 
 #include <system.h>
+#include <vfs.h>
 
 #define	__packed	__attribute__((packed))
 
@@ -154,6 +155,6 @@ typedef struct
 #define ext2_dir_type_SCKT	6
 #define ext2_dir_type_SLINK	7
 
-extern fs_t ext2;
+extern fs_t ext2fs;
 
 #endif

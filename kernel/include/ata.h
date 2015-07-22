@@ -17,6 +17,12 @@
 #define ATA_DRV0		0x00	// first drive
 #define ATA_DRV1		0x10	// second drive
 
+typedef struct 
+{
+	uint64_t start_lba;
+	uint64_t end_lba;
+} atadev_private_t;
+
 extern dev_t atadev;
 
 #endif

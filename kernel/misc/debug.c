@@ -122,7 +122,11 @@ void debug(uint8_t *fmt, ...)
 			++fmt;
 			break;
 		case '\n':
+#if _DBG_CON_
+			serial.write('\n');
+#else
 			serial.write_str("\n\r");
+#endif
 			++fmt;
 			break;
 		default:

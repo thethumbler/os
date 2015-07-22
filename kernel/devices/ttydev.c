@@ -10,6 +10,7 @@
 #include <process.h>
 #include <va_list.h>
 #include <console.h>
+#include <devfs.h>
 
 static uint32_t tty_count = 0;
 inode_t *cur_tty;
@@ -102,8 +103,65 @@ static void tty_scroll(tty_device_t *tty, uint32_t n)
 */
 }
 
+static uint32_t
+ttydev_probe(inode_t *inode)
+{
+	static tty_master_t ttym;
+	ttym = 
+		(tty_master_t)
+		{
+			.cur_tty	= 0,
+			//.invoke		= ttym_invoke,
+			.console	= vfs_trace_path(inode, "/console"),
+		};
+
+#if _DBG_CON_
+	extern tty_device_t serial_tty_dev;
+	static tty_device_t tty_dev;
+	tty_dev = serial_tty_dev;
+	tty_dev.master = &ttym;
+#else
+	static tty_device_t tty_dev;
+	tty_dev = 
+		(tty_device_t)
+		{
+			.id			= 0,
+			.master		= &ttym,
+			.pos		= 0,
+			.virtcon	= get_virtcon(&tty_dev, 80, 25),
+			.p			= NULL,
+			.buf		= NULL,
+			.len		= 0,
+		};
+#endif
+	
+	static inode_t tty_inode = 
+		(inode_t)
+		{
+			.name	= "0",
+			.type	= FS_CHRDEV,
+			.fs		= &devfs,
+			.dev	= &ttydev,
+			.p		= &tty_dev,
+		};
+	
+	static inode_t tty_dir = 
+		(inode_t)
+		{
+			.name	= "tty",
+			.type	= FS_DIR,
+			//.fs	= &devfs,
+			//.dev	= &ramdev,
+		};
+
+	cur_tty = &tty_inode;
+		
+	vfs_create(inode, "/", &tty_dir);
+	vfs_create(&tty_dir, "/", &tty_inode);
+}
+
 static uint32_t 
-ttydev_write(inode_t *inode, uint32_t offset_unused, uint32_t size, void *__buf)
+ttydev_write(inode_t *inode, uint64_t offset_unused, uint64_t size, void *__buf)
 {	
 	uint8_t *_buf = __buf;
 	tty_device_t *tty = inode->p;
@@ -330,7 +388,6 @@ ttydev_write(inode_t *inode, uint32_t offset_unused, uint32_t size, void *__buf)
 								fg, 	// fg colour
 								bg		// bg color
 							 );
- 				tty->pos;
 				pos = ++i;
 				break;
 
@@ -447,12 +504,24 @@ void tty_kbd(uint8_t scancode)
 		if(shift) buf[0] = kbd_us_shift[scancode];
 		else 
 		buf[0] = kbd_us[scancode];
-		ttydev_write(cur_tty, 0, 1, buf);
+		
 		
 		if(tty->p)
 			(i < tty->len)?(tty->buf[i++] = buf[0]):(tty->buf[i] = '\0');
 		
-		if(buf[0] == '\b' && tty->buf && i) { tty->buf[--i] = '\0'; --i; }
+		if(buf[0] == '\b')
+		{
+			if(tty->buf && i)
+			{
+				tty->buf[--i] = '\0';
+				if(i)
+				{
+					--i;
+					ttydev_write(cur_tty, 0, 1, buf);
+				}
+			}
+		}
+		else ttydev_write(cur_tty, 0, 1, buf);
 		
 		if(kbd_us[scancode] == '\n') 
 		{
@@ -475,7 +544,7 @@ void tty_kbd(uint8_t scancode)
 
 }
 
-uint32_t ttydev_read(inode_t *inode, uint32_t offset_unused, uint32_t len, void *buf)
+uint32_t ttydev_read(inode_t *inode, uint64_t offset_unused, uint64_t len, void *buf)
 {
 	tty_device_t *tty = inode->p;
 	if(!tty->p) tty->p = current_process;
@@ -533,6 +602,7 @@ void ttym_invoke(tty_device_t *tty, uint32_t req, ...)
 dev_t ttydev = 
 	(dev_t)
 	{
+		.probe = &ttydev_probe,
 		.name  = "ttydev",
 		.read  = &ttydev_read,
 		.write = &ttydev_write,

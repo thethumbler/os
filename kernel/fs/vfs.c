@@ -129,12 +129,12 @@ void vfs_tree(inode_t *node)
 	}
 }
 
-uint32_t vfs_read(inode_t *inode, uint64_t offset, uint64_t len, void *buf)
+uint64_t vfs_read(inode_t *inode, uint64_t offset, uint64_t len, void *buf)
 {
 	return inode->fs->read(inode, offset, len, buf);
 }
 
-uint32_t vfs_write(inode_t *inode, uint64_t offset, uint64_t len, void *buf)
+uint64_t vfs_write(inode_t *inode, uint64_t offset, uint64_t len, void *buf)
 {
 	return inode->fs->write(inode, offset, len, buf);
 }

@@ -5,7 +5,7 @@ OBJ = boot.o kernel.o
 ALL_OBJ = boot.o kernel.o io.o serial.o debug.o string.o kmem.o gdt.o idt.o \
 		  cpu.o isr.o irq.o vfs.o initramfs.o process.o syscall.o scheduler.o \
 		  signal.o fpu.o pit.o ramdev.o ttydev.o ext2.o\
-		  devfs.o console.o kbd.o ata.o
+		  devfs.o console.o kbd.o ata.o devman.o fsman.o
 
 OUT = obj
 

@@ -11,12 +11,13 @@ typedef struct dentry_struct dentry_t;
 typedef struct filesystem_struct
 {
 	uint8_t		*name;
-	inode_t*	(*load)(inode_t*);
-	uint32_t	(*link)(inode_t*, uint8_t*);
+	inode_t*	(*load)  (inode_t*);
+	uint32_t	(*link)  (inode_t*, uint8_t*);
 	uint32_t	(*unlink)(inode_t*, uint8_t*);
-	uint32_t	(*read)(inode_t*, uint32_t, uint32_t, void*);
-	uint32_t	(*write)(inode_t*, uint32_t, uint32_t, void*);
-	uint32_t	(*ioctl)(inode_t*, uint32_t, ...);
+	uint64_t	(*read)  (inode_t*, uint64_t, uint64_t, void*);
+	uint64_t	(*write) (inode_t*, uint64_t, uint64_t, void*);
+	uint32_t	(*ioctl) (inode_t*, uint64_t, ...);
+	uint32_t	(*mount) (inode_t*, inode_t*);
 }fs_t;
 
 #include <device.h>
@@ -52,6 +53,14 @@ typedef struct dirent {
 	char d_name[256];
 } dirent;
 
+typedef struct
+{
+	void   (*init) ();
+	fs_t * (*getfs)(uint8_t *name);
+} fsman_t;
+
+extern fsman_t fsman;
+
 extern fs_t vfs;
 
 extern inode_t *vfs_root;
@@ -60,7 +69,7 @@ inode_t *vfs_create(inode_t*, uint8_t*, inode_t*);
 inode_t *vfs_mount(inode_t*, uint8_t*, inode_t*);
 void vfs_tree(inode_t*);
 
-uint32_t vfs_read (inode_t*, uint64_t, uint64_t, void*);
-uint32_t vfs_write(inode_t*, uint64_t, uint64_t, void*);
+uint64_t vfs_read (inode_t*, uint64_t, uint64_t, void*);
+uint64_t vfs_write(inode_t*, uint64_t, uint64_t, void*);
 
 #endif

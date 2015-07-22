@@ -4,8 +4,10 @@
 #include <kmem.h>
 #include <va_list.h>
 #include <tty.h>
+#include <devfs.h>
 
-static uint32_t console_ioctl(inode_t *inode_unused, uint64_t request, va_list args)
+static uint32_t 
+console_ioctl(inode_t *inode_unused, uint64_t request, va_list args)
 {
 	switch(request)
 	{
@@ -36,7 +38,22 @@ static uint32_t console_ioctl(inode_t *inode_unused, uint64_t request, va_list a
 	}
 }
 
-static void virtcon_draw(virtcon_device_t *virtcon)
+static uint32_t
+console_probe(inode_t *inode)
+{
+	static inode_t console_inode = 
+		(inode_t)
+		{
+			.name = "console",
+			.type = FS_CHRDEV,
+			.dev = &condev,
+			.fs  = &devfs,
+		};
+	vfs_create(inode, "/", &console_inode);
+}
+
+static void 
+virtcon_draw(virtcon_device_t *virtcon)
 {
 	//XXX temp draw
 	uint8_t *vmem = (uint8_t*)((uint64_t)&VMA + 0xB8000);
@@ -90,7 +107,8 @@ virtcon_setcur(virtcon_device_t *virtcon, uint32_t c, uint32_t r)
 	outb(0x3D5, (uint8_t)((pos >> 8) & 0xFF));
 }
 
-static void virtcon_scroll(virtcon_device_t *virtcon, uint32_t n)
+static void 
+virtcon_scroll(virtcon_device_t *virtcon, uint32_t n)
 {
 	uint32_t to_copy = (virtcon->h - n) * virtcon->w * 3;
 	memcpy(virtcon->buf, virtcon->buf + 3 * n * virtcon->w, to_copy);
@@ -98,7 +116,8 @@ static void virtcon_scroll(virtcon_device_t *virtcon, uint32_t n)
 	memset(virtcon->buf + to_copy, 0, 3 * n * virtcon->w);
 }
 
-virtcon_device_t *get_virtcon(tty_device_t *tty, uint32_t w, uint32_t h)
+virtcon_device_t *
+get_virtcon(tty_device_t *tty, uint32_t w, uint32_t h)
 {
 	virtcon_device_t *virtcon = kmalloc(sizeof(virtcon_device_t));
 	virtcon->buf  = kmalloc(h * w * 3);	// chr | fg | bg
@@ -116,6 +135,8 @@ virtcon_device_t *get_virtcon(tty_device_t *tty, uint32_t w, uint32_t h)
 dev_t condev = 
 	(dev_t)
 	{
+		.name  = "console",
+		.probe = console_probe,
 		.read  = NULL,
 		.write = NULL,
 		.ioctl = console_ioctl,

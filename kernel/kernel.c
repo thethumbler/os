@@ -18,6 +18,7 @@
 #include <pit.h>
 #include <devfs.h>
 #include <console.h>
+#include <device.h>
 
 void map_mem(multiboot_info_t*);
 
@@ -47,7 +48,6 @@ void init_video()
 
 void kmain(void)
 {
-	serial.init();
 	kernel_end = (uint64_t)heap_addr;
 	kernel_heap_ptr = (uint8_t*)((uint64_t)&VMA + kernel_end + heap_size) ;
 	UPD = (uint64_t*)((uint64_t)&VMA + kernel_end + 0x3000);
@@ -65,6 +65,8 @@ void kmain(void)
 
 	vmem_init();
 	
+	serial.init();
+
 	extern void load_tss(void);
 	load_tss();
 	extern uint64_t k_tss64_sp;
@@ -104,91 +106,15 @@ void kmain(void)
 	
 	vfs_mount_root(rootfs);
 	
-	vfs_mount(vfs_root, "/dev/", &dev_root);
-	
-	inode_t console_inode = 
-		(inode_t)
-		{
-			.name = "console",
-			.type = FS_CHRDEV,
-			.dev = &condev,
-			.fs  = &devfs,
-		};
-		
-	vfs_create(&dev_root, "/", &console_inode);
-	
-	tty_master_t ttym = 
-		(tty_master_t)
-		{
-			.cur_tty	= 0,
-			//.invoke		= ttym_invoke,
-			.console	= &console_inode,
-		};
-	
-	tty_device_t tty_dev = 
-		(tty_device_t)
-		{
-			.id			= 0,
-			.master		= &ttym,
-			.pos		= 0,
-			.virtcon	= get_virtcon(&tty_dev, 80, 25),
-			.p			= NULL,
-			.buf		= NULL,
-			.len		= 0,
-		};
-	
-	inode_t tty_inode = 
-		(inode_t)
-		{
-			.name	= "0",
-			.type	= FS_CHRDEV,
-			.fs		= &devfs,
-			.dev	= &ttydev,
-			.p		= &tty_dev,
-		};
-	
-	inode_t tty_dir = 
-		(inode_t)
-		{
-			.name	= "tty",
-			.type	= FS_DIR,
-			//.fs	= &devfs,
-			//.dev	= &ramdev,
-		};
-		
-	vfs_create(&dev_root, "/", &tty_dir);
-	vfs_create(&tty_dir, "/", &tty_inode);
-	vfs_mount(vfs_root, "/dev/", &dev_root);
-	
-	virtcon_device_t *virtcon = tty_dev.virtcon;
-	
-	inode_t *tty0 = vfs_trace_path(vfs_root, "/dev/tty/0");
-
-	char *msg = "tty0\n";
-	vfs_write(tty0, 0, strlen(msg), msg);
-
 	irq_install_handler(1, kbd_handler);
-
-	extern inode_t *cur_tty;
-	cur_tty = tty0;
-	/*
-	inode_t sda_inode =
-	 	(inode_t) 
- 		{
- 			.name 	= "sda",
- 			.type	= FS_BLKDEV,
- 			.fs		= &devfs,
- 			.dev	= &atadev,
- 			//.p 		= &atadev_private, 
- 		};
-
-	vfs_create(&dev_root, "/", &sda_inode);*/
-	//vfs_tree(vfs_root);
-
-	//for(;;);
 	
-	//extern inode_t *ext2_load(void *_);
-	//ext2_load(&atadev);
+	devman.init();
+	fsman.init();
+	
+#if _DBG_CON_
+	// We should disable debugging by this stage!
+	serial.end();
+#endif
 
 	process_t *init = load_elf("/bin/init");
 		

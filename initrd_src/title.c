@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 
 #define WIDTH	80
 #define HEIGHT	25
@@ -8,7 +9,7 @@
 #define SETCOL(col)	printf("\033[%dm", col);
 int main(int argc, char **argv)
 {
-	if(argc != 2) return;
+	if(argc != 2) return -1;
 
 		
 	SETCUR(1, 1)

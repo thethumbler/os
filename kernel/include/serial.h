@@ -7,6 +7,7 @@ typedef struct {
 	void (*init) ();
 	void (*write) (uint8_t);
 	void (*write_str) (uint8_t*);
+	void (*end)();
 } serial_t;
 
 serial_t serial;

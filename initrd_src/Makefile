@@ -1,7 +1,7 @@
 include ../kernel/Makefile.cfg
 
 APPS = 	init login shell hw echo clear title syntax sayhi cat mbr ls sig \
-		bf malloctest
+		bf malloctest ext2chk mount
 
 all: $(APPS)
 	@echo -n -e "\033[1;33mCreating initrd : \033[1;31m"

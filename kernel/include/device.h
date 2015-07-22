@@ -18,9 +18,9 @@ struct dev_struct
 {
 	uint8_t		*name;
 	dev_type	type;
-	//void 		(*load) (void*);
-	uint32_t	(*read) (inode_t *inode, uint32_t offset, uint32_t size, void *buf);
-	uint32_t	(*write)(inode_t *inode, uint32_t offset, uint32_t size, void *buf);
+	uint32_t	(*probe)(inode_t *inode);
+	uint32_t	(*read) (inode_t *inode, uint64_t offset, uint64_t size, void *buf);
+	uint32_t	(*write)(inode_t *inode, uint64_t offset, uint64_t size, void *buf);
 	uint32_t	(*ioctl)(inode_t *inode, uint64_t request, va_list args);
 //	void 		*p;	// To be used by device handler
 } __attribute__((packed));
@@ -31,8 +31,14 @@ extern dev_t condev;
 typedef struct ramdev_private_struct
 {
 	void *ptr;
-	uint32_t size;
+	uint64_t size;
 }ramdev_private_t;
 
+typedef struct
+{
+	void (*init)(void);
+} devman_t;
+
+extern devman_t devman;
 
 #endif
